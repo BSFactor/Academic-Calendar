@@ -15,8 +15,22 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from django.http import JsonResponse
+
+def root_view(request):
+    return JsonResponse({
+        "message": "Welcome to Academic Calendar API",
+        "available_endpoints": [
+            "/api/users/signup/",
+            "/api/users/login/",
+            "/api/events/my-events/"
+        ]
+    })
 
 urlpatterns = [
+    path('', root_view),
     path('admin/', admin.site.urls),
+    path('api/users/', include('users.urls')),
+    path('api/events/', include('events.urls')),
 ]
