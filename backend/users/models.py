@@ -5,5 +5,6 @@ class User(AbstractUser):
     ROLE_CHOICES = (
         ("AA", "Academic Assistant"),
         ("DAA", "Department Academic Assistant"),
+        ("USER", "Normal User"),
     )
-    role = models.CharField(max_length=3, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="USER")
