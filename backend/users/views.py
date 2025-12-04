@@ -7,6 +7,13 @@ from .serializers import SignupSerializer
 
 # Signup endpoint
 class SignupView(APIView):
+    """
+    POST /api/users/signup/
+    Creates a new user account and returns an auth token.
+    """
+
+    http_method_names = ['post']
+
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
@@ -17,9 +24,11 @@ class SignupView(APIView):
 
 # Login endpoint (returns token)
 class LoginView(ObtainAuthToken):
+    http_method_names = ['post']
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data,
-                                           context={'request': request})
+        serializer = self.serializer_class(
+            data=request.data,
+            context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
         token, _ = Token.objects.get_or_create(user=user)
