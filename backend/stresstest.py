@@ -32,19 +32,28 @@ for u in users:
         else:
             print(f"Login failed for {u['username']}: {login_resp.status_code}")
 
-# AA users create events
+# AA users create events (assign to normal_user1)
+normal_user_id = None
+for username, info in tokens.items():
+    if info["role"] == "USER":
+        normal_user_id = username
+
 for username, info in tokens.items():
     if info["role"] == "AA":
         headers = {"Authorization": f"Bearer {info['token']}"}
-        start_time = datetime.now() + timedelta(minutes=10)
+        # Create at different times to avoid overlap
+        if username == "aa_user1":
+            start_time = datetime.now() + timedelta(hours=2)
+        else:
+            start_time = datetime.now() + timedelta(hours=4)
         event_data = {
             "title": f"Event by {username}",
-            "description": "Pending approval",
+            "description": f"Created by {username} - Approved by DAA",
             "start_time": start_time.isoformat(),
             "end_time": (start_time + timedelta(hours=1)).isoformat()
         }
         resp = requests.post(CREATE_EVENT_URL, json=event_data, headers=headers)
-        print(f"Create event {username}: {resp.status_code} -> {resp.text}")
+        print(f"Create event {username}: {resp.status_code}")
         if resp.status_code == 201:
             created_events.append(resp.json()["id"])
 
@@ -61,6 +70,14 @@ for username, info in tokens.items():
     if info["role"] == "USER":
         headers = {"Authorization": f"Bearer {info['token']}"}
         resp = requests.get(MY_EVENTS_URL, headers=headers)
+        print(f"Fetch events {username}: {resp.status_code}")
+
+# AA users also check their events (which should be approved now)
+aa_events_url = f"{BASE_URL}/api/events/my-events/"
+for username, info in tokens.items():
+    if info["role"] == "AA":
+        headers = {"Authorization": f"Bearer {info['token']}"}
+        resp = requests.get(aa_events_url, headers=headers)
         print(f"Fetch events {username}: {resp.status_code} -> {resp.text}")
 
 print("====== STRESS TEST COMPLETE ======")

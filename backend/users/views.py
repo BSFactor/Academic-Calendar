@@ -19,7 +19,7 @@ def login_page(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            return redirect('/users/api/login/')
+            return redirect('/calendar/')
         messages.error(request, 'Invalid username or password')
     return render(request, "users/login.html")
 
@@ -31,7 +31,7 @@ def signup_page(request):
         email = request.POST.get('email')
         password = request.POST.get('password')
 
-        # Check if user already exists
+        # Check existing username/email to avoid duplicates
         if User.objects.filter(username=username).exists():
             messages.error(request, 'Username already exists')
             return render(request, "users/signup.html")
@@ -40,11 +40,12 @@ def signup_page(request):
             messages.error(request, 'Email already exists')
             return render(request, "users/signup.html")
 
-        # Create custom user with role default
+        # Create new user with default role 'USER' and log in
         try:
             user = User.objects.create_user(username=username, email=email, password=password, role='USER')
-            messages.success(request, 'Account created successfully! Please log in.')
-            return redirect('/users/api/login/')
+            login(request, user)
+            messages.success(request, 'Account created successfully!')
+            return redirect('/calendar/')
         except Exception as e:
             messages.error(request, f'Error creating account: {str(e)}')
             return render(request, "users/signup.html")

@@ -1,6 +1,10 @@
 from django.db import models
 from django.conf import settings
 
+# Store calendar events created by AA users.
+# - Use `status` to control workflow: pending -> approved -> rejected
+# - Store `assigned_to` as the user the event belongs to (usually creator)
+# - Record `approved_by` as the DAA/admin user who approved the event
 class Event(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),

@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.http import JsonResponse
 from django.views.generic import RedirectView
 from users.views import login_page, signup_page
+from events.views import calendar_week_view
 # def root_view(request):
 #     return JsonResponse({
 #         "message": "Welcome to Academic Calendar API",
@@ -35,6 +36,7 @@ urlpatterns = [
     # web login and signup pages
     path('users/api/login/', login_page, name='web_login'),
     path('users/api/signup/', signup_page, name='web_signup'),
+    path('calendar/', calendar_week_view, name='calendar'),
     path('api/users/', include('users.urls')),
     path('api/events/', include('events.urls')),
 ]
