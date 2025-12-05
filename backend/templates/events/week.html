@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calendar - Giao diện Tuần</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    body {
+        margin: 0;
+        font-family: "Inter", Arial, sans-serif;
+        background: #f3f4f6;
+        display: flex;
+        height: 100vh;
+        color: #333;
+    }
+
+
+    .sidebar {
+        width: 250px;
+        background: white;
+        padding: 20px;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        z-index: 10;
+    }
+    .logo { font-weight: bold; font-size: 20px; }
+    .nav-section { display: flex; flex-direction: column; gap: 10px; }
+    .nav-section h3 {
+        margin: 15px 0 5px 0; color: #555; font-size: 14px;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .nav-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+    .nav-item:hover { background: #f0f0f0; }
+    .nav-item.active { background: rgb(255, 255, 255); color: white; }
+    .calendar {
+        margin-top: 20px; background: #f9fafb; padding: 15px; border-radius: 12px;
+    }
+    .calendar-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; }
+    .days { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; gap: 5px; font-size: 14px; }
+    .days div { font-size: 12px; color: #666; }
+    .day { padding: 8px; font-size: 14px !important; color: #333 !important; }
+    .today { background: rgb(255, 255, 255); color: white !important; border-radius: 50%; }
+
+    /* ---- Main Panel Styles (Giữ nguyên) ---- */
+    .main {
+        flex: 1;
+        padding: 30px;
+        overflow-y: auto; 
+        height: 100vh;
+        box-sizing: border-box;
+    }
+    .topbar {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 20px;
+    }
+    .search-bar { padding: 10px 15px; border-radius: 10px; border: 1px solid #ccc; width: 250px; }
+    .profile-icon { font-size: 24px; }
+    .header { display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { margin: 0; }
+    .period-switch {
+        background: #e5e7eb; padding: 5px; border-radius: 10px;
+        display: flex; gap: 10px;
+    }
+    .period-switch div {
+        padding: 7px 15px; border-radius: 8px; cursor: pointer; font-weight: 500;
+    }
+    .period-switch .active {
+        background: white; color: black; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+
+    .week-view-container {
+        margin-top: 30px;
+        width: 100%;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .week-header {
+        display: flex;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .header-gutter {
+        width: 70px;
+        min-width: 70px;
+        border-right: 1px solid #e5e7eb;
+    }
+    
+    .header-days {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+    }
+    
+    .day-header-item {
+        padding: 12px 8px;
+        text-align: center;
+        border-left: 1px solid #e5e7eb;
+    }
+    .day-header-item:first-child { border-left: none; }
+    .day-name { font-size: 12px; text-transform: uppercase; color: #666; }
+    .day-number { font-size: 20px; font-weight: 600; margin-top: 4px; }
+    
+    .day-header-item.today .day-number {
+        background-color: #007bff; color: white; border-radius: 50%;
+        width: 30px; height: 30px; line-height: 30px; margin: 4px auto 0;
+    }
+
+    .week-body {
+        display: flex;
+        height: 70vh; 
+        overflow-y: auto;
+    }
+
+    .time-gutter {
+        width: 70px;
+        min-width: 70px;
+        padding-top: 15px;
+        border-right: 1px solid #e5e7eb;
+    }
+
+    .time-gutter-hour {
+        height: 60px; 
+        text-align: right;
+        padding-right: 10px;
+        font-size: 12px;
+        color: #666;
+    }
+    .time-gutter-hour:first-child { margin-top: -15px; }
+
+    .days-grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        grid-template-rows: repeat(24, 60px); 
+        position: relative;
+    }
+
+    .day-column {
+        border-left: 1px solid #e5e7eb;
+    }
+    .day-column:first-child { border-left: none; }
+
+    .time-slot {
+        height: 60px;
+        border-bottom: 1px solid #e5e7eb;
+        box-sizing: border-box; 
+    }
+
+    .events-layer {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%;
+        height: calc(24 * 60px);
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        pointer-events: none; 
+    }
+    
+    .event-column {
+        position: relative;
+        pointer-events: all;
+    }
+
+    .event {
+        position: absolute;
+        left: 5px; right: 5px;
+        background-color: #007bff;
+        color: white;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        box-sizing: border-box;
+        overflow: hidden;
+        z-index: 1;
+    }
+
+</style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo">CalendarApp</div>
+        <div class="nav-section">
+            <div class="nav-item active"> Create</div>
+        </div>
+        <div class="nav-section">
+            <h3>Schedule</h3>
+            <div class="nav-item"> Calendar</div>
+            <div class="nav-item"> Reminders</div>
+            <div class="nav-item"> Journals</div>
+        </div>
+        <div class="calendar">
+             <div class="calendar-header"><span>November</span><span>2025</span></div>
+            <div class="days">
+                <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+                <div class="day"></div><div class="day"></div><div class="day">1</div>
+                <div class="day">2</div><div class="day today">3</div><div class="day">4</div><div class="day">5</div>
+                <div class="day">6</div><div class="day">7</div><div class="day">8</div><div class="day">9</div>
+                <div class="day">10</div><div class="day">11</div><div class="day">12</div><div class="day">13</div>
+                <div class="day">14</div><div class="day">15</div><div class="day">16</div><div class="day">17</div>
+                <div class="day">18</div><div class="day">19</div><div class="day">20</div><div class="day">21</div>
+            </div>
+        </div>
+    </div>
+
+ 
+    <div class="main">
+        <div class="topbar">
+            <input class="search-bar" type="text" placeholder="Search..." />
+            <div class="profile-icon">👤</div>
+        </div>
+
+        <div class="header">
+            <h1>Tháng 11, 2025</h1>
+            
+            <div class="period-switch">
+                <div>Years</div>
+                <div>Month</div>
+                <div class="active">Week</div> <div>Day</div>
+            </div>
+        </div>
+        
+        <div class="week-view-container">
+            <div class="week-header">
+                <div class="header-gutter"></div>
+                <div class="header-days">
+                    <div class="day-header-item">
+                        <div class="day-name">Thứ 2</div>
+                        <div class="day-number">10</div>
+                    </div>
+                    <div class="day-header-item">
+                        <div class="day-name">Thứ 3</div>
+                        <div class="day-number">11</div>
+                    </div>
+                    <div class="day-header-item">
+                        <div class="day-name">Thứ 4</div>
+                        <div class="day-number">12</div>
+                    </div>
+                    <div class="day-header-item">
+                        <div class="day-name">Thứ 5</div>
+                        <div class="day-number">13</div>
+                    </div>
+                    <div class="day-header-item today"> <div class="day-name">Thứ 6</div>
+                        <div class="day-number">14</div>
+                    </div>
+                    <div class="day-header-item">
+                        <div class="day-name">Thứ 7</div>
+                        <div class="day-number">15</div>
+                    </div>
+                    <div class="day-header-item">
+                        <div class="day-name">CN</div>
+                        <div class="day-number">16</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="week-body">
+                <div class="time-gutter">
+                    <div class="time-gutter-hour">12 AM</div>
+                    <div class="time-gutter-hour">1 AM</div>
+                    <div class="time-gutter-hour">2 AM</div>
+                    <div class="time-gutter-hour">3 AM</div>
+                    <div class="time-gutter-hour">4 AM</div>
+                    <div class="time-gutter-hour">5 AM</div>
+                    <div class="time-gutter-hour">6 AM</div>
+                    <div class="time-gutter-hour">7 AM</div>
+                    <div class="time-gutter-hour">8 AM</div>
+                    <div class="time-gutter-hour">9 AM</div>
+                    <div class="time-gutter-hour">10 AM</div>
+                    <div class="time-gutter-hour">11 AM</div>
+                    <div class="time-gutter-hour">12 PM</div>
+                    <div class="time-gutter-hour">1 PM</div>
+                    <div class="time-gutter-hour">2 PM</div>
+                    <div class="time-gutter-hour">3 PM</div>
+                    <div class="time-gutter-hour">4 PM</div>
+                    <div class="time-gutter-hour">5 PM</div>
+                    <div class="time-gutter-hour">6 PM</div>
+                    <div class="time-gutter-hour">7 PM</div>
+                    <div class="time-gutter-hour">8 PM</div>
+                    <div class="time-gutter-hour">9 PM</div>
+                    <div class="time-gutter-hour">10 PM</div>
+                    <div class="time-gutter-hour">11 PM</div>
+                </div>
+
+                <div class="days-grid">
+                    <div class="day-column"></div>
+                    <div class="day-column"></div>
+                    <div class="day-column"></div>
+                    <div class="day-column"></div>
+                    <div class="day-column"></div>
+                    <div class="day-column"></div>
+                    <div class="day-column"></div>
+                    
+                    <div class="events-layer" id="events-layer">
+                        <!-- Events will be dynamically rendered here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+<script>
+    // Get events from Django context
+    const events = {{ events|safe }};
+    console.log('Events from backend:', events);
+    
+    // Get the current week's start date (Monday)
+    function getWeekStart() {
+        const today = new Date();
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+        return new Date(today.setDate(diff));
+    }
+    
+    function renderEvents() {
+        const weekStart = getWeekStart();
+        console.log('Week start:', weekStart);
+        
+        const eventsLayer = document.getElementById('events-layer');
+        
+        // Create 7 event columns first
+        for (let i = 0; i < 7; i++) {
+            const col = document.createElement('div');
+            col.className = 'event-column';
+            col.style.position = 'relative';
+            eventsLayer.appendChild(col);
+        }
+        
+        console.log('Created', eventsLayer.children.length, 'columns');
+        
+        // Render each event
+        events.forEach((event, idx) => {
+            console.log(`Processing Event ${idx}:`, event);
+            
+            const eventStart = new Date(event.start_time);
+            const eventEnd = new Date(event.end_time);
+            
+            console.log(`Event times: start=${eventStart.toLocaleString()}, end=${eventEnd.toLocaleString()}`);
+            
+            // Calculate which day of the week (0=Monday, 6=Sunday)
+            const daysDiff = Math.floor((eventStart - weekStart) / (1000 * 60 * 60 * 24));
+            
+            console.log(`Days diff: ${daysDiff} (Week start: ${weekStart.toLocaleString()})`);
+            
+            // Skip if event is not in this week
+            if (daysDiff < 0 || daysDiff >= 7) {
+                console.log('Event outside this week, skipping');
+                return;
+            }
+            
+            // Calculate hour and minute position
+            const startHour = eventStart.getHours();
+            const startMinute = eventStart.getMinutes();
+            const topOffset = (startHour + startMinute / 60) * 60;
+            
+            // Calculate event duration in pixels (60px = 1 hour)
+            const duration = (eventEnd - eventStart) / (1000 * 60 * 60);
+            const height = duration * 60;
+            
+            console.log(`Position: top=${topOffset}px, height=${height}px, day=${daysDiff}, column=${eventsLayer.children[daysDiff]}`);
+            
+            // Create event element
+            const eventEl = document.createElement('div');
+            eventEl.className = 'event';
+            eventEl.style.top = `${topOffset}px`;
+            eventEl.style.height = `${height}px`;
+            eventEl.innerHTML = `<strong>${event.title}</strong><br><small>${event.description || ''}</small>`;
+            eventEl.title = `${event.title}\n${eventStart.toLocaleString()} - ${eventEnd.toLocaleString()}`;
+            
+            // Add to correct column
+            const eventColumn = eventsLayer.children[daysDiff];
+            if (eventColumn) {
+                eventColumn.appendChild(eventEl);
+                console.log(`✓ Event ${idx} added to column ${daysDiff}`);
+            } else {
+                console.log(`✗ Column ${daysDiff} not found!`);
+            }
+        });
+    }
+    
+    // Render events on page load
+    document.addEventListener('DOMContentLoaded', renderEvents);
+</script>
+
+</body>
+</html>
