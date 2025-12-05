@@ -22,15 +22,20 @@ class User(AbstractUser):
         return f"{self.username} ({self.role})"
 class Major(models.Model):
     name = models.CharField(max_length=200, unique=True)
-    courses = models.ManyToManyField(
-        "Course", related_name="courses", blank=True
-    )
     def __str__(self):
         return self.name
 
 # Create your models here.
 class StudentProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="student_profile")
+    # Make user optional at the DB/form level so admin can create a StudentProfile
+    # and let the model's save() create the associated User if missing.
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="student_profile",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=200)
     email = models.EmailField(unique=True, default="john@doe.com")
     dob = models.DateField(verbose_name="date of birth")
@@ -59,6 +64,7 @@ class StudentProfile(models.Model):
         super().save(*args, **kwargs)
     def __str__(self):
         return f"{self.student_id} - {self.name}"
+
 
     def delete(self, *args, **kwargs):
         # Delete the associated user when student profile is deleted
