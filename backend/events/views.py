@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions
+from rest_framework.response import Response
 from .models import Event
 from .serializers import EventSerializer
 from .permission import IsDAA, IsAA
