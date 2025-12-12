@@ -131,6 +131,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Use custom user model from the users app
 AUTH_USER_MODEL = 'users.User'
 
+AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 # Configure JWT authentication for REST APIs
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

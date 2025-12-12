@@ -36,7 +36,10 @@ const resetPasswordSchema = z.object({
 type SignInFormValues = z.infer<typeof signInSchema>;
 type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 
+import { useNavigate } from "react-router-dom";
+
 export default function Index() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,12 +63,30 @@ export default function Index() {
   const handleSignIn = async (values: SignInFormValues) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      toast.success(`Welcome back! Signed in as ${values.email}`);
+      const response = await fetch("/users/token/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: values.email,
+          password: values.password
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Invalid credentials");
+      }
+
+      const data = await response.json();
+      localStorage.setItem("accessToken", data.access);
+      localStorage.setItem("refreshToken", data.refresh);
+
+      toast.success("Login successful!");
+      navigate("/profile");
       form.reset();
     } catch (error) {
-      toast.error("Failed to sign in. Please try again.");
+      toast.error("Failed to sign in. Please check your email and password.");
     } finally {
       setIsLoading(false);
     }

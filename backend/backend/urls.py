@@ -24,5 +24,6 @@ urlpatterns = [
     path("calendar/", include("calendar_app.urls")),
     # Frontend routes
     path("auth/login", TemplateView.as_view(template_name="index.html")),
+    path("profile", TemplateView.as_view(template_name="index.html")),
     path("", RedirectView.as_view(url="/auth/login")),
 ]
