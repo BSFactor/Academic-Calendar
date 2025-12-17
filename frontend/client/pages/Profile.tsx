@@ -146,6 +146,13 @@ export default function Profile() {
                                 </svg>
                                 Approve Events
                             </Button>
+                            <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/list') }>{/* Using a simple list icon (adjust as needed) */}
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                                </svg>
+                                List of Events
+                            </Button>
+                            
                             <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white">
                                 <Bell className="mr-2 h-4 w-4" /> Reminders
                             </Button>

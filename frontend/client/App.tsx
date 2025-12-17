@@ -15,6 +15,8 @@ import EditProfileStudent from "./pages/EditProfile-Student";
 import CalendarPage from "./pages/Calendar";
 import CreateEvents from "./pages/CreateEvents";
 import ApproveEvents from "./pages/ApproveEvents";
+import ListOfEvents from "./pages/ListOfEvents";
+import EditEvent from "./pages/EditEvents";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,8 @@ const App = () => (
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/create" element={<CreateEvents />} />
           <Route path="/approve" element={<ApproveEvents />} />
+          <Route path="/list" element={<ListOfEvents />} />
+          <Route path="/edit/:id" element={<EditEvent />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
