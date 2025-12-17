@@ -10,6 +10,13 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
 import Profile from "./pages/Profile";
+import EditProfile from "./pages/EditProfile";
+import EditProfileStudent from "./pages/EditProfile-Student";
+import CalendarPage from "./pages/Calendar";
+import CreateEvents from "./pages/CreateEvents";
+import ApproveEvents from "./pages/ApproveEvents";
+import ListOfEvents from "./pages/ListOfEvents";
+import EditEvent from "./pages/EditEvents";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +29,13 @@ const App = () => (
         <Routes>
           <Route path="/auth/login" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/edit-profile" element={<EditProfile />} />
+          <Route path="/profile/student" element={<EditProfileStudent />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/create" element={<CreateEvents />} />
+          <Route path="/approve" element={<ApproveEvents />} />
+          <Route path="/list" element={<ListOfEvents />} />
+          <Route path="/edit/:id" element={<EditEvent />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
