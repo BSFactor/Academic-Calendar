@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ScheduledEvent, Course, Room
+from .models import ScheduledEvent, Course, Room, Major
 
 @admin.register(ScheduledEvent)
 class ScheduledEventAdmin(admin.ModelAdmin):
@@ -14,5 +14,11 @@ class CourseAdmin(admin.ModelAdmin):
 
 @admin.register(Room)
 class RoomAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+
+
+@admin.register(Major)
+class MajorAdmin(admin.ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)

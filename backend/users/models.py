@@ -20,11 +20,7 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.role})"
-class Major(models.Model):
-    name = models.CharField(max_length=200, unique=True)
-    def __str__(self):
-        return self.name
-
+# Major model moved to calendar_app.models
 # Create your models here.
 class StudentProfile(models.Model):
     # Make user optional at the DB/form level so admin can create a StudentProfile
@@ -40,8 +36,8 @@ class StudentProfile(models.Model):
     email = models.EmailField(unique=True, default="john@doe.com")
     dob = models.DateField(verbose_name="date of birth")
     student_id = models.CharField(max_length=50, unique=True)
-    # link student's major to Major model; allow null to ease migrations and optional students
-    major = models.ForeignKey(Major, on_delete=models.SET_NULL, null=True, blank=True, related_name="students")
+    # link student's major to Major model in calendar_app; allow null to ease migrations and optional students
+    major = models.ForeignKey('calendar_app.Major', on_delete=models.SET_NULL, null=True, blank=True, related_name="students")
     year = models.PositiveSmallIntegerField()
 
     def save(self, *args, **kwargs):
@@ -79,7 +75,7 @@ class TutorProfile(models.Model):
     name = models.CharField(max_length=200)
     dob = models.DateField(verbose_name="date of birth")
     tutor_id = models.CharField(max_length=50, unique=True)
-
+    courses = models.ManyToManyField('calendar_app.Course', related_name="tutors", blank=True)
     def delete(self, *args, **kwargs):
         # Delete the associated user when tutor profile is deleted
         if self.user:

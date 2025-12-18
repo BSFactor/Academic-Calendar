@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, Bell, ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -9,61 +9,197 @@ type CreateEventFormProps = {
 };
 
 function CreateEventForm({ onDone }: CreateEventFormProps) {
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE || "http://localhost:8000";
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<string>("");
   const [location, setLocation] = useState("");
-  const [course, setCourse] = useState("");
-  const [tutor, setTutor] = useState("");
-  const [startHour, setStartHour] = useState("");
-  const [endHour, setEndHour] = useState("");
+  const [coursesList, setCoursesList] = useState<Array<any>>([]);
+  const [course, setCourse] = useState<string>("");
+  const [tutorsList, setTutorsList] = useState<Array<any>>([]);
+  const [tutor, setTutor] = useState<string>("");
+  const [eventType, setEventType] = useState<string>("");
+  const [startHour, setStartHour] = useState<string>("");
+  const [startMinute, setStartMinute] = useState<string>("00");
+  const [endHour, setEndHour] = useState<string>("");
+  const [endMinute, setEndMinute] = useState<string>("00");
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
 
   const locations = [
-    "-- Choose location --",
-    "Nhà 2H, phòng 204",
-    "Nhà 3C, phòng 408",
-    "Nhà 2A, phòng 312",
-    "Nhà A10, hội trường tầng 4",
-    "Nhà A21, hội trường tầng 8",
   ];
-  const courses = [
-    "-- Choose course --",
-    "Advanced databases",
-    "Scientific writing and communication",
-    "Distributed systems",
-    "Introduction to Deep Learning",
-    "Web Application Development",
-  ];
-  const tutors = [
-    "-- Choose tutor --",
-    "Lê Như Chu Hiệp",
-    "Trần Giang Sơn",
-    "Đoàn Nhật Quang",
-    "Kiều Quốc Việt",
-    "Huỳnh Vĩnh Nam",
-  ];
-  const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
+  // Hours limited to 06..18 for scheduling; minutes in 5-minute increments
+  const hours = Array.from({ length: 13 }, (_, i) => String(i + 6).padStart(2, "0"));
+  const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
 
-  const handleSubmit = (e: any) => {
+  const eventTypes = [
+    { value: "lecture", label: "Lecture" },
+    { value: "labwork", label: "Labwork" },
+    { value: "exam", label: "Exam" },
+  ];
+
+  // Helper to combine hour/min into HH:MM
+  const toTime = (h: string, m: string) => (h ? `${h}:${m}` : "");
+
+  // Compute start/end as strings
+  const startTime = toTime(startHour, startMinute);
+  const endTime = toTime(endHour, endMinute);
+
+  const formatTime = (t: string) => t;
+
+  // Fetch courses on load
+  useEffect(() => {
+    let mounted = true;
+    fetch(`${API_BASE}/calendar/courses/`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!mounted) return;
+        console.log("Fetched courses:", data);
+        console.log(`Courses fetch succeeded: ${Array.isArray(data) ? data.length : 'unknown'} items`);
+        // Expect array of {id, name}
+        setCoursesList(data);
+        console.log('coursesList set (count):', Array.isArray(data) ? data.length : 'unknown');
+      })
+      .catch((err) => {
+        console.error("Failed to fetch courses", err);
+      });
+    return () => { mounted = false };
+  }, []);
+
+  // When course changes, fetch tutors for that course
+  useEffect(() => {
+    if (!course) {
+      setTutorsList([]);
+      return;
+    }
+    let mounted = true;
+    fetch(`${API_BASE}/calendar/courses/${course}/tutors/`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!mounted) return;
+        setTutorsList(data);
+        console.log(`Fetched tutors for course ${course}:`, data);
+      })
+      .catch((err) => { console.error('Failed to fetch tutors', err); setTutorsList([]); });
+    return () => { mounted = false };
+  }, [course]);
+
+  // Debug: log tutorsList updates (count only)
+  useEffect(() => {
+    console.log('tutorsList count:', Array.isArray(tutorsList) ? tutorsList.length : 0);
+  }, [tutorsList]);
+
+  // Debug current tutor/date state
+  useEffect(() => {
+    console.log('Current tutor:', tutor, 'date:', date, 'start enabled?', !!tutor && !!date);
+  }, [tutor, date]);
+
+  // Debug: log coursesList updates (count only)
+  useEffect(() => {
+    console.log('coursesList count:', Array.isArray(coursesList) ? coursesList.length : 0);
+  }, [coursesList]);
+
+  // Consolidated form-state logger (concise values)
+  useEffect(() => {
+    console.log('Form state:', { date, course, eventType, tutor, startHour, startMinute, endHour, endMinute });
+  }, [date, course, eventType, tutor, startHour, startMinute, endHour, endMinute]);
+
+  // When tutor or date changes we will fetch that tutor's schedules for date
+  const [tutorBusyRanges, setTutorBusyRanges] = useState<Array<{start: string, end: string}>>([]);
+  useEffect(() => {
+    if (!tutor || !date) {
+      setTutorBusyRanges([]);
+      return;
+    }
+    let mounted = true;
+    fetch(`${API_BASE}/calendar/tutors/${tutor}/schedules/?date=${date}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!mounted) return;
+        // Expect data: [{start_time: 'HH:MM', end_time: 'HH:MM'}, ...]
+        setTutorBusyRanges(data.map((d: any) => ({ start: d.start_time, end: d.end_time })) );
+      })
+      .catch((err) => { console.error('Failed to fetch tutor schedules', err); setTutorBusyRanges([]); });
+    return () => { mounted = false };
+  }, [tutor, date]);
+
+  // Compute available time slots by removing busy ranges (simple approach: disable overlapping selections client-side)
+  const isRangeOverlapping = (sA: string, eA: string, sB: string, eB: string) => {
+    return !(eA <= sB || sA >= eB);
+  }
+
+  // Rooms available after start/end selected
+  const [availableRooms, setAvailableRooms] = useState<Array<any>>([]);
+  useEffect(() => {
+    if (!date || !startTime || !endTime) { setAvailableRooms([]); return; }
+    fetch(`${API_BASE}/calendar/rooms/available/?date=${date}&start=${startTime}&end=${endTime}`)
+      .then((r) => r.json())
+      .then((data) => setAvailableRooms(data))
+      .catch((err) => { console.error('Failed to fetch available rooms', err); setAvailableRooms([]); });
+  }, [date, startTime, endTime]);
+
+  const validateNoTutorOverlap = () => {
+    if (!startTime || !endTime) return false;
+    for (const b of tutorBusyRanges) {
+      if (isRangeOverlapping(startTime, endTime, b.start, b.end)) return false;
+    }
+    return true;
+  }
+
+  const validateNoRoomOverlap = async () => {
+    // We already requested available rooms; if room list is empty then none available
+    return availableRooms.length > 0;
+  }
+
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
-    const ev = { id: Date.now(), title, date, location, course, tutor, startHour, endHour, notes, status: "pending" };
+    // Basic validation
+    if (!title) { alert("Please fill title"); return; }
+    if (!date) { alert("Please choose a date"); return; }
+    if (!course) { alert("Please choose a course"); return; }
+    if (!eventType) { alert("Please choose an event type"); return; }
+    if (!tutor) { alert("Please choose a tutor"); return; }
+    if (!startTime || !endTime) { alert("Please choose start and end time"); return; }
+    if (startTime >= endTime) { alert("Start time must be before end time"); return; }
+    if (!validateNoTutorOverlap()) { alert("Tutor has a conflicting schedule"); return; }
+    const roomAvailable = await validateNoRoomOverlap();
+    if (!roomAvailable) { alert("No rooms available for the chosen timeframe"); return; }
+    // If backend returned availableRooms, require user to select one of them
+    if (availableRooms.length) {
+      if (!location) { alert("Please choose a room"); return; }
+      const ok = availableRooms.some((r: any) => String(r.id) === String(location) || r.name === location);
+      if (!ok) { alert("Selected room is not available at that time"); return; }
+    }
+
+    // Submit to backend API
+    const payload = {
+      title,
+      date,
+      course: course,
+      event_type: eventType,
+      tutor: tutor,
+      start_time: startTime,
+      end_time: endTime,
+      room: location,
+      notes,
+      status: "pending",
+    };
     try {
-      const raw = localStorage.getItem("events");
-      const arr = raw ? JSON.parse(raw) : [];
-      arr.push(ev);
-      localStorage.setItem("events", JSON.stringify(arr));
-      try {
-        window.dispatchEvent(new Event("events:changed"));
-      } catch (err) {
-        /* ignore */
+      const res = await fetch(`${API_BASE}/calendar/create_event/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Failed to create event: " + (err.detail || res.statusText));
+        return;
       }
       setSaved(true);
-      setTimeout(() => {
-        if (onDone) onDone();
-      }, 700);
+      try { window.dispatchEvent(new Event('events:changed')); } catch(_){}
+      setTimeout(() => { if (onDone) onDone(); }, 700);
     } catch (err) {
       console.error(err);
+      alert('Network error while creating event');
     }
   };
 
@@ -84,29 +220,38 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Location</label>
-          <select value={location} onChange={(e) => setLocation(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
-            {locations.map((l) => (
-              <option key={l} value={l}>{l}</option>
-            ))}
-          </select>
+          {/* placeholder column to keep layout consistent until location appears after time selectors */}
+          <div className="mt-6" />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Course</label>
-          <select value={course} onChange={(e) => setCourse(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
-            {courses.map((c) => (
-              <option key={c} value={c}>{c}</option>
+          <select value={course} onChange={(e) => setCourse(String(e.target.value))} disabled={!date} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
+            {coursesList.map((c) => (
+              <option key={String(c.id)} value={String(c.id)}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Event type</label>
+          <select value={eventType} onChange={(e) => setEventType(String(e.target.value))} disabled={!course} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
+            {eventTypes.map((et) => (
+              <option key={et.value} value={et.value}>{et.label}</option>
             ))}
           </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Tutor</label>
-          <select value={tutor} onChange={(e) => setTutor(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
-            {tutors.map((t) => (
-              <option key={t} value={t}>{t}</option>
+          <select
+            value={tutor}
+            onChange={(e) => { console.log('tutor select onChange raw value:', e.target.value); setTutor(String(e.target.value)); }}
+            disabled={!course}
+            className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2"
+          >
+            {tutorsList.map((t: any) => (
+              <option key={String(t.id)} value={String(t.id)}>{t.name || t.username || t.email}</option>
             ))}
           </select>
         </div>
@@ -114,23 +259,44 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Start hour</label>
-          <select value={startHour} onChange={(e) => setStartHour(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
-            <option value="">-- from --</option>
-            {hours.map((h) => (
-              <option key={h} value={h}>{h}</option>
-            ))}
-          </select>
+          <label className="block text-sm font-medium text-gray-700">Start time</label>
+          <div className="mt-1 flex gap-2 items-center">
+            <select value={startHour} onChange={(e) => setStartHour(e.target.value)} disabled={String(tutor).trim() === ""} className="w-20 rounded-md border border-gray-200 px-2 py-1 text-sm">
+              {hours.map((h) => (<option key={h} value={h}>{h}</option>))}
+            </select>
+            <span className="text-sm text-gray-500">:</span>
+            <select value={startMinute} onChange={(e) => setStartMinute(e.target.value)} disabled={String(tutor).trim() === ""} className="w-20 rounded-md border border-gray-200 px-2 py-1 text-sm">
+              {minutes.map((m) => (<option key={m} value={m}>{m}</option>))}
+            </select>
+          </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">End hour</label>
-          <select value={endHour} onChange={(e) => setEndHour(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
-            <option value="">-- to --</option>
-            {hours.map((h) => (
-              <option key={h} value={h}>{h}</option>
+          <label className="block text-sm font-medium text-gray-700">End time</label>
+          <div className="mt-1 flex gap-2 items-center">
+            <select value={endHour} onChange={(e) => setEndHour(e.target.value)} disabled={String(tutor).trim() === ""} className="w-20 rounded-md border border-gray-200 px-2 py-1 text-sm">
+              {hours.map((h) => (<option key={h} value={h}>{h}</option>))}
+            </select>
+            <span className="text-sm text-gray-500">:</span>
+            <select value={endMinute} onChange={(e) => setEndMinute(e.target.value)} disabled={String(tutor).trim() === ""} className="w-20 rounded-md border border-gray-200 px-2 py-1 text-sm">
+              {minutes.map((m) => (<option key={m} value={m}>{m}</option>))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Location</label>
+          <select value={location} onChange={(e) => setLocation(e.target.value)} disabled={!startTime || !endTime} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
+            <option value="" disabled>{availableRooms.length ? 'Select room' : 'No rooms available'}</option>
+            {availableRooms.length ? availableRooms.map((r: any) => (
+              <option key={r.id || r.name} value={r.id || r.name}>{r.name || r.id}</option>
+            )) : locations.map((l) => (
+              <option key={l} value={l}>{l}</option>
             ))}
           </select>
         </div>
+        <div />
       </div>
 
       <div>
@@ -225,16 +391,6 @@ export default function CreateEvents() {
       </div>
 
       <div className="w-full self-start flex flex-col h-full min-h-0">
-        <div className="mb-0">
-          <DashboardBanner
-            images={[
-              "https://storage.googleapis.com/usth-edu.appspot.com/2025-08-14_10-34-59%2Fbanner-ts.jpg",
-              "http://storage.googleapis.com/usth-edu.appspot.com/2025-08-14_10-35-08%2Fbanner-master.jpg",
-              "https://usth.edu.vn/wp-content/uploads/2021/12/1slidectsv.jpg",
-            ]}
-            intervalMs={5000}
-          />
-        </div>
 
         <div className="flex gap-6 flex-1 min-h-0">
           <div className="w-2/3 flex flex-col min-h-0">

@@ -3,13 +3,13 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 
 from .models import (
-	Major,
 	StudentProfile,
 	TutorProfile,
 	AcademicAssistantProfile,
 	DepartmentAcademicAssistantProfile,
 	AdministratorProfile,
 )
+ 
 
 # Register the custom User model
 User = get_user_model()
@@ -24,12 +24,6 @@ class CustomUserAdmin(UserAdmin):
 
 	fieldsets = UserAdmin.fieldsets + (("Role", {"fields": ("role",)}),)
 	add_fieldsets = UserAdmin.add_fieldsets + ((None, {"fields": ("role",)}),)
-
-
-@admin.register(Major)
-class MajorAdmin(admin.ModelAdmin):
-	list_display = ("name",)
-	search_fields = ("name",)
 
 
 @admin.register(StudentProfile)
