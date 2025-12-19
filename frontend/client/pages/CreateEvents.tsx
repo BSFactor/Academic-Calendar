@@ -47,41 +47,36 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
 
   const formatTime = (t: string) => t;
 
-  // Fetch courses on load
+  // Fetch courses and ALL tutors on load
   useEffect(() => {
     let mounted = true;
+
+    // Courses
     fetch(`${API_BASE}/api/calendar/courses/`)
       .then((r) => r.json())
       .then((data) => {
         if (!mounted) return;
-        console.log("Fetched courses:", data);
-        console.log(`Courses fetch succeeded: ${Array.isArray(data) ? data.length : 'unknown'} items`);
-        // Expect array of {id, name}
         setCoursesList(data);
-        console.log('coursesList set (count):', Array.isArray(data) ? data.length : 'unknown');
       })
-      .catch((err) => {
-        console.error("Failed to fetch courses", err);
-      });
-    return () => { mounted = false };
-  }, []);
+      .catch((err) => console.error("Failed to fetch courses", err));
 
-  // When course changes, fetch tutors for that course
-  useEffect(() => {
-    if (!course) {
-      setTutorsList([]);
-      return;
-    }
-    let mounted = true;
-    fetch(`${API_BASE}/api/calendar/courses/${course}/tutors/`)
+    // Tutors (ALL)
+    fetch(`${API_BASE}/api/calendar/tutors/`)
       .then((r) => r.json())
       .then((data) => {
         if (!mounted) return;
         setTutorsList(data);
-        console.log(`Fetched tutors for course ${course}:`, data);
       })
-      .catch((err) => { console.error('Failed to fetch tutors', err); setTutorsList([]); });
+      .catch((err) => console.error("Failed to fetch tutors", err));
+
     return () => { mounted = false };
+  }, []);
+
+  // Previously fetched tutors when course changed. Now we fetch all on mount.
+  // We can keep this empty or remove it.
+  useEffect(() => {
+    // optional: filter tutors if course is selected? User wanted ALL tutors visible.
+    // So we do nothing here.
   }, [course]);
 
   // Debug: log tutorsList updates (count only)
@@ -251,9 +246,9 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
           <select
             value={tutor}
             onChange={(e) => { console.log('tutor select onChange raw value:', e.target.value); setTutor(String(e.target.value)); }}
-            disabled={!course}
             className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2"
           >
+            <option value="">Select Tutor...</option>
             {tutorsList.map((t: any) => (
               <option key={String(t.id)} value={String(t.id)}>{t.name || t.username || t.email}</option>
             ))}

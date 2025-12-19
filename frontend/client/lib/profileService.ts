@@ -33,10 +33,10 @@ export const clearLocalProfile = () => {
 };
 
 // Use Vite env var for API base when present.
-const API = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "http://127.0.0.1:8000";
+const API = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "";
 
 export const fetchProfileFromApi = async (token: string): Promise<Profile> => {
-  const res = await fetch(`${API}/users/my-profile/`, {
+  const res = await fetch(`${API}/api/users/my-profile/`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -52,7 +52,7 @@ export const getProfile = async (): Promise<Profile | null> => {
   try {
     const p = await fetchProfileFromApi(token);
     // update local cache for optional offline use, but still require API success
-    try { saveLocalProfile(p); } catch {}
+    try { saveLocalProfile(p); } catch { }
     return p;
   } catch {
     // treat any API failure as unauthenticated
@@ -61,7 +61,7 @@ export const getProfile = async (): Promise<Profile | null> => {
 };
 
 export const updateProfile = async (token: string, data: Partial<Profile>): Promise<Profile> => {
-  const res = await fetch(`${API}/users/my-profile/`, {
+  const res = await fetch(`${API}/api/users/my-profile/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -72,6 +72,6 @@ export const updateProfile = async (token: string, data: Partial<Profile>): Prom
 
   if (!res.ok) throw new Error("Update failed");
   const p = (await res.json()) as Profile;
-  try { saveLocalProfile(p); } catch {}
+  try { saveLocalProfile(p); } catch { }
   return p;
 };

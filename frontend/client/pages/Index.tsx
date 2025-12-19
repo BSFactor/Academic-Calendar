@@ -40,7 +40,7 @@ import { useNavigate } from "react-router-dom";
 import { saveLocalProfile, getProfile } from "@/lib/profileService";
 
 // API base (use Vite env var in development or default to local Django)
-const API = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API = import.meta.env.VITE_API_BASE || "";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -49,7 +49,7 @@ export default function Index() {
     try {
       const p = await getProfile();
       if (p) navigate('/profile');
-    } catch {}
+    } catch { }
   })();
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -74,7 +74,7 @@ export default function Index() {
   const handleSignIn = async (values: SignInFormValues) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API}/users/token/`, {
+      const response = await fetch(`${API}/api/users/token/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -91,7 +91,7 @@ export default function Index() {
         try {
           const err = await response.json();
           errMsg = err.detail || err.error || JSON.stringify(err);
-        } catch {}
+        } catch { }
         toast.error(`Sign in failed: ${errMsg}`);
         setIsLoading(false);
         return;
@@ -103,14 +103,14 @@ export default function Index() {
 
       // attempt to fetch profile from API response if available
       try {
-        const profileRes = await fetch(`${API}/users/my-profile/`, {
+        const profileRes = await fetch(`${API}/api/users/my-profile/`, {
           headers: { Authorization: `Bearer ${data.access}` },
         });
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           saveLocalProfile(profileData);
         }
-      } catch {}
+      } catch { }
 
       toast.success("Login successful!");
       navigate("/profile");

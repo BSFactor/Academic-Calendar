@@ -7,9 +7,11 @@ urlpatterns = [
     # Public API endpoints used by frontend
     path("courses/", views.courses_list),
     path("courses/<int:course_id>/tutors/", views.course_tutors),
+    path("tutors/", views.all_tutors),
     path("tutors/<int:tutor_id>/schedules/", views.tutor_schedules),
     path("rooms/available/", views.rooms_available),
     path("scheduledevents/", views.scheduledevents_list),
     path("events/", views.events_fallback),
     path("create_event/", views.create_event),
+    path("export/", views.export_calendar),
 ]

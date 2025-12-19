@@ -20,11 +20,18 @@ from django.views.generic import TemplateView, RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('users/', include('users.urls')),
-    path("calendar/", include("calendar_app.urls")),
+    path('api/users/', include('users.urls')),
+    path("api/calendar/", include("calendar_app.urls")),
     # Frontend routes
     path("auth/login", TemplateView.as_view(template_name="index.html")),
     path("profile", TemplateView.as_view(template_name="index.html")),
+    path("profile/student", TemplateView.as_view(template_name="index.html")),
+    path("calendar", TemplateView.as_view(template_name="index.html")),
+    path("create", TemplateView.as_view(template_name="index.html")),
+    path("approve", TemplateView.as_view(template_name="index.html")),
+    # Check if we need to catch sub-paths or just strict paths.
+    # React Router handles sub-paths usually, but Django needs to hand off.
+    
     # Redirect root to the frontend profile route so users see the profile
     # page immediately when visiting the site (frontend-only view).
     path("", RedirectView.as_view(url="/profile")),

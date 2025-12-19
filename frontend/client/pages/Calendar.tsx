@@ -5,6 +5,18 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, CalendarIcon, Bell, User } from "lucide-react";
 import DashboardBanner from "@/components/ui/dashboard-banner";
 import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Download } from "lucide-react";
 
 type EventItem = {
   id: number;
@@ -31,6 +43,55 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Export state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportStart, setExportStart] = useState("");
+  const [exportEnd, setExportEnd] = useState("");
+
+  // Set default export dates when opening (start/end of current month)
+  useEffect(() => {
+    if (exportOpen) {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setExportStart(formatDateLocal(start));
+      setExportEnd(formatDateLocal(end));
+    }
+  }, [exportOpen]);
+
+  const handleExport = async () => {
+    if (!exportStart || !exportEnd) {
+      alert("Please select start and end dates");
+      return;
+    }
+    const token = localStorage.getItem("accessToken");
+    const url = `${API_BASE}/api/calendar/export/?start=${exportStart}&end=${exportEnd}`;
+
+    try {
+      const headers: any = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Export failed: ${res.status} ${res.statusText} - ${txt}`);
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `calendar_export_${exportStart}_${exportEnd}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setExportOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Failed to export calendar");
+    }
+  };
 
   const API_BASE = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "";
 
@@ -208,6 +269,51 @@ export default function CalendarPage() {
                 >
                   <ChevronRight />
                 </Button>
+
+                <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="ml-2">
+                      <Download className="mr-2 h-4 w-4" /> Export
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Export Calendar</DialogTitle>
+                      <DialogDescription>
+                        Select a date range to export events to CSV.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="start" className="text-right">
+                          Start
+                        </Label>
+                        <Input
+                          id="start"
+                          type="date"
+                          value={exportStart}
+                          onChange={(e) => setExportStart(e.target.value)}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="end" className="text-right">
+                          End
+                        </Label>
+                        <Input
+                          id="end"
+                          type="date"
+                          value={exportEnd}
+                          onChange={(e) => setExportEnd(e.target.value)}
+                          className="col-span-3"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleExport}>Download CSV</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
 

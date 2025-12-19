@@ -252,6 +252,15 @@ def course_tutors(request, course_id):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+def all_tutors(request):
+    # Return ALL tutors
+    tutors = User.objects.filter(role="tutor")
+    data = [{"id": t.id, "name": getattr(t, "name", None) or getattr(t, "username", t.email)} for t in tutors]
+    return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
 def tutor_schedules(request, tutor_id):
     date_q = request.query_params.get("date")
     if not date_q:
@@ -298,7 +307,86 @@ def scheduledevents_list(request):
 
 
 @api_view(["GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def events_fallback(request):
     """Backward-compatible endpoint: /calendar/events/"""
     return scheduledevents_list(request)
+
+
+import csv
+from django.http import HttpResponse
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def export_calendar(request):
+    """
+    Export events to CSV for Google Calendar import.
+    Query params: start (YYYY-MM-DD), end (YYYY-MM-DD)
+    """
+    start_q = request.query_params.get("start")
+    end_q = request.query_params.get("end")
+
+    if not start_q or not end_q:
+        return Response({"detail": "start and end query params are required (YYYY-MM-DD)"}, status=400)
+
+    try:
+        start_date = datetime.date.fromisoformat(start_q)
+        end_date = datetime.date.fromisoformat(end_q)
+    except ValueError:
+        return Response({"detail": "Invalid date format"}, status=400)
+
+    # Filter events
+    events = ScheduledEvent.objects.filter(
+        date__range=[start_date, end_date],
+        status="approved" # Only approved events? Or pending too? User said "export calendar", implying the official one. Let's do approved + pending if user is owner?
+        # For simplicity and "Google Calendar" usage, usually means what I see on the calendar.
+        # Let's export ALL events for now, or maybe just approved.
+        # User didn't specify status. "Export calendar" usually implies the public/visible one.
+        # Re-reading: "Output should be a csv file to import to a google calendar"
+        # Let's export all non-rejected/cancelled logic effectively?
+        # The public list returns ALL events. Let's stick to that matching 'scheduledevents_list' which returns all.
+        # Wait, 'scheduledevents_list' returns all.
+        # But 'export' usually implies personal agenda?
+        # The prompt says "user be able to export calendar".
+        # Let's filter by status='approved' to be safe, creating a clean calendar.
+    ).filter(status='approved').order_by('date', 'start_time')
+
+    # Create response
+    response = HttpResponse(
+        content_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="calendar_export.csv"'},
+    )
+
+    writer = csv.writer(response)
+    # Google Calendar CSV headers: Subject, Start Date, Start Time, End Date, End Time, All Day Event, Description, Location, Private
+    writer.writerow(["Subject", "Start Date", "Start Time", "End Date", "End Time", "All Day Event", "Description", "Location"])
+
+    for event in events:
+        # Subject: Course name - Title (Type)
+        subject = f"{event.course.name} - {event.title} ({event.event_type})"
+        
+        # Date: DD/MM/YYYY
+        s_date = event.date.strftime("%d/%m/%Y")
+        
+        # Time: HH:MM
+        s_time = event.start_time.strftime("%H:%M")
+        e_time = event.end_time.strftime("%H:%M")
+        
+        tutor_name = event.tutor.username if event.tutor else "TBD"
+        description = f"Tutor: {tutor_name}"
+        # Removed event.notes as it is not in the model
+        
+        location = event.room.name if event.room else "TBD"
+
+        writer.writerow([
+            subject,
+            s_date,
+            s_time,
+            s_date, 
+            e_time,
+            "False",
+            description,
+            location
+        ])
+
+    return response
