@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getLocalProfile } from "@/lib/profileService";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, Bell, ChevronLeft } from "lucide-react";
+import { CalendarIcon, Bell, ChevronLeft, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardBanner from "@/components/ui/dashboard-banner";
 
@@ -10,7 +10,7 @@ type CreateEventFormProps = {
 };
 
 function CreateEventForm({ onDone }: CreateEventFormProps) {
-  const API_BASE = (import.meta as any).env?.VITE_API_BASE || "http://localhost:8000";
+  const API_BASE = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "";
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<string>("");
   const [location, setLocation] = useState("");
@@ -50,7 +50,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
   // Fetch courses on load
   useEffect(() => {
     let mounted = true;
-    fetch(`${API_BASE}/calendar/courses/`)
+    fetch(`${API_BASE}/api/calendar/courses/`)
       .then((r) => r.json())
       .then((data) => {
         if (!mounted) return;
@@ -73,7 +73,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
       return;
     }
     let mounted = true;
-    fetch(`${API_BASE}/calendar/courses/${course}/tutors/`)
+    fetch(`${API_BASE}/api/calendar/courses/${course}/tutors/`)
       .then((r) => r.json())
       .then((data) => {
         if (!mounted) return;
@@ -105,19 +105,19 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
   }, [date, course, eventType, tutor, startHour, startMinute, endHour, endMinute]);
 
   // When tutor or date changes we will fetch that tutor's schedules for date
-  const [tutorBusyRanges, setTutorBusyRanges] = useState<Array<{start: string, end: string}>>([]);
+  const [tutorBusyRanges, setTutorBusyRanges] = useState<Array<{ start: string, end: string }>>([]);
   useEffect(() => {
     if (!tutor || !date) {
       setTutorBusyRanges([]);
       return;
     }
     let mounted = true;
-    fetch(`${API_BASE}/calendar/tutors/${tutor}/schedules/?date=${date}`)
+    fetch(`${API_BASE}/api/calendar/tutors/${tutor}/schedules/?date=${date}`)
       .then((r) => r.json())
       .then((data) => {
         if (!mounted) return;
         // Expect data: [{start_time: 'HH:MM', end_time: 'HH:MM'}, ...]
-        setTutorBusyRanges(data.map((d: any) => ({ start: d.start_time, end: d.end_time })) );
+        setTutorBusyRanges(data.map((d: any) => ({ start: d.start_time, end: d.end_time })));
       })
       .catch((err) => { console.error('Failed to fetch tutor schedules', err); setTutorBusyRanges([]); });
     return () => { mounted = false };
@@ -132,7 +132,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
   const [availableRooms, setAvailableRooms] = useState<Array<any>>([]);
   useEffect(() => {
     if (!date || !startTime || !endTime) { setAvailableRooms([]); return; }
-    fetch(`${API_BASE}/calendar/rooms/available/?date=${date}&start=${startTime}&end=${endTime}`)
+    fetch(`${API_BASE}/api/calendar/rooms/available/?date=${date}&start=${startTime}&end=${endTime}`)
       .then((r) => r.json())
       .then((data) => setAvailableRooms(data))
       .catch((err) => { console.error('Failed to fetch available rooms', err); setAvailableRooms([]); });
@@ -188,7 +188,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
       const token = localStorage.getItem("accessToken");
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/calendar/create_event/`, {
+      const res = await fetch(`${API_BASE}/api/calendar/create_event/`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -199,7 +199,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
         return;
       }
       setSaved(true);
-      try { window.dispatchEvent(new Event('events:changed')); } catch(_){}
+      try { window.dispatchEvent(new Event('events:changed')); } catch (_) { }
       setTimeout(() => { if (onDone) onDone(); }, 700);
     } catch (err) {
       console.error(err);
@@ -360,11 +360,14 @@ export default function CreateEvents() {
                 return (
                   <>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Schedule</h3>
+                    <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/profile')}>
+                      <User className="mr-2 h-4 w-4" /> Profile
+                    </Button>
                     <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/calendar')}>
                       <CalendarIcon className="mr-2 h-4 w-4" /> Calendar
                     </Button>
                     {showCreate && (
-                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create') }>
+                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create')}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
@@ -372,7 +375,7 @@ export default function CreateEvents() {
                       </Button>
                     )}
                     {showApprove && (
-                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve') }>
+                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve')}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>

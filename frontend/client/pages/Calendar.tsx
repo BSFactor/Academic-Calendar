@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getLocalProfile } from "@/lib/profileService";
 import { formatDateLocal } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, CalendarIcon, Bell } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, Bell, User } from "lucide-react";
 import DashboardBanner from "@/components/ui/dashboard-banner";
 import { useNavigate } from "react-router-dom";
 
@@ -32,7 +32,7 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = (import.meta as any).env.VITE_API_BASE || "http://localhost:8000";
+  const API_BASE = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "";
 
   const getMonthMatrix = (date: Date) => {
     const year = date.getFullYear();
@@ -56,8 +56,8 @@ export default function CalendarPage() {
 
   const fmtTime = (t: any) => {
     if (!t) return "";
-    if (typeof t === "string") return t.length >= 5 ? t.slice(0,5) : t;
-    try { return t.toString().slice(0,5); } catch { return String(t); }
+    if (typeof t === "string") return t.length >= 5 ? t.slice(0, 5) : t;
+    try { return t.toString().slice(0, 5); } catch { return String(t); }
   };
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function CalendarPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_BASE}/calendar/scheduledevents/`);
+        const res = await fetch(`${API_BASE}/api/calendar/scheduledevents/`);
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const data = await res.json();
         console.log("Fetched events raw:", data);
@@ -79,14 +79,14 @@ export default function CalendarPage() {
         console.warn("Failed to fetch /scheduledevents/, trying /events/:", err);
         // fallback: try a shorter path
         try {
-          const res2 = await fetch(`${API_BASE}/calendar/events/`);
+          const res2 = await fetch(`${API_BASE}/api/calendar/events/`);
           if (res2.ok) {
             const d2 = await res2.json();
             console.log("Fetched events fallback:", d2);
             if (mounted) setEvents(Array.isArray(d2) ? d2 : (d2.results || []));
             setError(null);
           }
-        } catch {}
+        } catch { }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -135,11 +135,14 @@ export default function CalendarPage() {
                 const showApprove = role === "department_assistant" || role === "administrator";
                 return (
                   <>
+                    <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/profile')}>
+                      <User className="mr-2 h-4 w-4" /> Profile
+                    </Button>
                     <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/calendar')}>
                       <CalendarIcon className="mr-2 h-4 w-4" /> Calendar
                     </Button>
                     {showCreate && (
-                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create') }>
+                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create')}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
@@ -147,7 +150,7 @@ export default function CalendarPage() {
                       </Button>
                     )}
                     {showApprove && (
-                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve') }>
+                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve')}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>

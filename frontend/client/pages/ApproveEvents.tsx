@@ -1,20 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { getLocalProfile } from "@/lib/profileService";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, Bell, ChevronLeft, Check, X } from "lucide-react";
+import { CalendarIcon, Bell, ChevronLeft, Check, X, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function ApproveEvents() {
   const [events, setEvents] = useState<Array<any>>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
-  const API_BASE = (import.meta as any).env.VITE_API_BASE || "http://localhost:8000";
+  const API_BASE = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "";
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        const res = await fetch(`${API_BASE}/calendar/scheduledevents/`);
+        const res = await fetch(`${API_BASE}/api/calendar/scheduledevents/`);
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const data = await res.json();
         const arr = Array.isArray(data) ? data : (data.results || []);
@@ -46,7 +46,7 @@ export default function ApproveEvents() {
     setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
     try {
       if (!token) throw new Error("No auth token");
-      const res = await fetch(`${API_BASE}/calendar/${status === 'approved' ? 'approve' : 'reject'}/${id}/`, {
+      const res = await fetch(`${API_BASE}/api/calendar/${status === 'approved' ? 'approve' : 'reject'}/${id}/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -56,12 +56,12 @@ export default function ApproveEvents() {
         throw new Error(`${res.status} ${res.statusText}`);
       }
       // refresh list from server
-      const fresh = await fetch(`${API_BASE}/calendar/scheduledevents/`);
+      const fresh = await fetch(`${API_BASE}/api/calendar/scheduledevents/`);
       if (fresh.ok) {
         const d = await fresh.json();
         const arr = Array.isArray(d) ? d : (d.results || []);
         setEvents(arr);
-        try { window.dispatchEvent(new Event("events:changed")); } catch {}
+        try { window.dispatchEvent(new Event("events:changed")); } catch { }
       }
     } catch (err) {
       console.error("Failed to update status on server, falling back to localStorage:", err);
@@ -71,7 +71,7 @@ export default function ApproveEvents() {
       const newArr = arr.map((e: any) => (e.id === id ? { ...e, status } : e));
       localStorage.setItem("events", JSON.stringify(newArr));
       setEvents(newArr);
-      try { window.dispatchEvent(new Event("events:changed")); } catch {}
+      try { window.dispatchEvent(new Event("events:changed")); } catch { }
     }
   };
 
@@ -117,11 +117,14 @@ export default function ApproveEvents() {
                 const showApprove = role === "department_assistant" || role === "administrator";
                 return (
                   <>
+                    <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/profile')}>
+                      <User className="mr-2 h-4 w-4" /> Profile
+                    </Button>
                     <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/calendar')}>
                       <CalendarIcon className="mr-2 h-4 w-4" /> Calendar
                     </Button>
                     {showCreate && (
-                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create') }>
+                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create')}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
@@ -129,7 +132,7 @@ export default function ApproveEvents() {
                       </Button>
                     )}
                     {showApprove && (
-                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve') }>
+                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve')}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>

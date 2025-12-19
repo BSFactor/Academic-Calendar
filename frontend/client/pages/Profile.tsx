@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Bell, Mail, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarIcon, Bell, Mail, Shield, ChevronLeft, ChevronRight, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDateLocal } from "@/lib/utils";
@@ -12,7 +12,7 @@ import CreateEvents from "./CreateEvents";
 import DashboardBanner from "@/components/ui/dashboard-banner";
 
 export default function Profile() {
-    
+
     const [user, setUser] = useState<{ username: string; email: string; role: string; contactNumber?: string } | null>(null);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [viewMode, setViewMode] = useState<"profile" | "calendar" | "create" | "approve">("profile");
@@ -171,11 +171,14 @@ export default function Profile() {
                             return (
                                 <nav className="flex flex-col gap-1 px-1">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Schedule</h3>
+                                    <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/profile')}>
+                                        <User className="mr-2 h-4 w-4" /> Profile
+                                    </Button>
                                     <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/calendar')}>
                                         <CalendarIcon className="mr-2 h-4 w-4" /> Calendar
                                     </Button>
                                     {showCreate && (
-                                        <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create') }>
+                                        <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create')}>
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                             </svg>
@@ -183,7 +186,7 @@ export default function Profile() {
                                         </Button>
                                     )}
                                     {showApprove && (
-                                        <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve') }>
+                                        <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve')}>
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                             </svg>
