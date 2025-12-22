@@ -168,6 +168,7 @@ export default function Profile() {
                             const role = profile?.role;
                             const showCreate = role === "academic_assistant" || role === "administrator";
                             const showApprove = role === "department_assistant" || role === "administrator";
+                            const showBulkUpload = role === "department_assistant" || role === "administrator";
                             return (
                                 <nav className="flex flex-col gap-1 px-1">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Schedule</h3>
@@ -191,6 +192,14 @@ export default function Profile() {
                                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                             </svg>
                                             Approve Events
+                                        </Button>
+                                    )}
+                                    {showBulkUpload && (
+                                        <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/bulk-upload-students')}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M8 3v4M16 3v4M3 11h18" />
+                                            </svg>
+                                            Bulk Upload Students
                                         </Button>
                                     )}
                                     <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white">

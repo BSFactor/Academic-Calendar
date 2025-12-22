@@ -29,6 +29,8 @@ urlpatterns = [
     path("calendar", TemplateView.as_view(template_name="index.html")),
     path("create", TemplateView.as_view(template_name="index.html")),
     path("approve", TemplateView.as_view(template_name="index.html")),
+    path("bulk-upload-students", TemplateView.as_view(template_name="index.html")),
+    path("bulk-upload-students/", TemplateView.as_view(template_name="index.html")),
     # Check if we need to catch sub-paths or just strict paths.
     # React Router handles sub-paths usually, but Django needs to hand off.
     

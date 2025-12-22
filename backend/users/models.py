@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
 import logging
 from datetime import date
+import re
 
 logger = logging.getLogger(__name__)
 class User(AbstractUser):
@@ -42,20 +43,37 @@ class StudentProfile(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.user_id:  # If no user assigned yet
-            # Create username: name lowercased no spaces + DOB as ddmmyy
-            name_clean = self.name.lower().replace(' ', '')
-            username = self.email 
-            
-            # Create password: name lowercased no spaces + student_id lowercased
-            password = name_clean + self.student_id.lower()
-            
-            # Create the user (use get_user_model for safety)
+            # Build a username from the student's name (sanitized)
+            name_clean = (self.name or '').lower()
+            base_username = re.sub(r'[^a-z0-9]', '', name_clean)
+            if not base_username:
+                base_username = re.sub(r'[^a-z0-9]', '', str(self.student_id).lower())
+
+            # ensure username uniqueness by appending student_id if needed
             user_model = get_user_model()
-            user = user_model.objects.create_user(username=username, password=password, role='student')
+            username = base_username
+            if user_model.objects.filter(username=username).exists():
+                username = f"{base_username}{self.student_id.lower()}"
+                counter = 1
+                while user_model.objects.filter(username=username).exists():
+                    username = f"{base_username}{self.student_id.lower()}{counter}"
+                    counter += 1
+
+            # Create password: student_id + dob in DDMMYYYY format
+            try:
+                dob_part = self.dob.strftime('%d%m%Y')
+            except Exception:
+                dob_part = ""
+            password = f"{self.student_id}{dob_part}"
+
+            # Create the user (use get_user_model for safety) and set email separately
+            user = user_model.objects.create_user(username=username, email=self.email, password=password, role='student')
+            # ensure newly created user is active so they can sign in immediately
+            user.is_active = True
+            user.save()
             self.user = user
-            
-            # Log the created credentials
-            logger.info(f"Created user for student {self.name}: username='{username}', password='{password}'")
+
+            logger.info(f"Created user for student {self.name}: username='{username}', password='[REDACTED]'")
         
         super().save(*args, **kwargs)
     def __str__(self):
