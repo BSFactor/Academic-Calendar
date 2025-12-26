@@ -39,6 +39,14 @@ type EventItem = {
 export default function CalendarPage() {
   const navigate = useNavigate();
   const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    const now = new Date();
+    const s = new Date(now);
+    s.setDate(now.getDate() - now.getDay()); // start on Sunday
+    s.setHours(0,0,0,0);
+    return s;
+  });
   const [selected, setSelected] = useState<Date | undefined>(undefined);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,6 +99,16 @@ export default function CalendarPage() {
       console.error(e);
       alert(e.message || "Failed to export calendar");
     }
+  };
+
+  const getWeekDays = (start: Date) => {
+    const days: Date[] = [];
+    const s = new Date(start);
+    for (let i = 0; i < 7; i++) {
+      days.push(new Date(s));
+      s.setDate(s.getDate() + 1);
+    }
+    return days;
   };
 
   const API_BASE = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "";
@@ -172,25 +190,38 @@ export default function CalendarPage() {
       <Sidebar />
       <main className="flex-1 flex flex-col">
         <div className="flex gap-6 flex-1 min-h-0">
-          <div className="w-2/3 flex flex-col min-h-0">
+          <div className={`${viewMode === 'week' ? 'w-full' : 'w-2/3'} flex flex-col min-h-0`}>
             <div className="flex items-center justify-between mb-4 px-2">
-              <div></div>
+              <div className="flex items-center gap-2">
+                <Button variant={viewMode==='month'?'ghost':'outline'} size="sm" onClick={() => setViewMode('month')}>Month</Button>
+                <Button variant={viewMode==='week'?'ghost':'outline'} size="sm" onClick={() => { setViewMode('week'); const now = new Date(); const s = new Date(now); s.setDate(now.getDate() - now.getDay()); s.setHours(0,0,0,0); setWeekStart(s); }}>Week</Button>
+              </div>
               <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() - 1, 1))}
-                >
-                  <ChevronLeft />
-                </Button>
-                <div className="px-3 text-sm font-medium">
-                  {displayMonth.toLocaleString(undefined, { month: "long" })} {displayMonth.getFullYear()}
-                </div>
-                <Button
-                  variant="ghost"
-                  onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 1))}
-                >
-                  <ChevronRight />
-                </Button>
+                {viewMode === 'month' ? (
+                  <>
+                    <Button variant="ghost" onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() - 1, 1))}>
+                      <ChevronLeft />
+                    </Button>
+                    <div className="px-3 text-sm font-medium">
+                      {displayMonth.toLocaleString(undefined, { month: "long" })} {displayMonth.getFullYear()}
+                    </div>
+                    <Button variant="ghost" onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 1))}>
+                      <ChevronRight />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" onClick={() => setWeekStart(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7))}>
+                      <ChevronLeft />
+                    </Button>
+                    <div className="px-3 text-sm font-medium">
+                      Week of {weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </div>
+                    <Button variant="ghost" onClick={() => setWeekStart(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7))}>
+                      <ChevronRight />
+                    </Button>
+                  </>
+                )}
               </div>
               <div className="ml-auto">
                 <Dialog open={exportOpen} onOpenChange={setExportOpen}>
@@ -245,92 +276,191 @@ export default function CalendarPage() {
                 <div className="text-sm text-gray-700">&nbsp;</div>
               </div>
 
-              {(() => {
-                const weeks = getMonthMatrix(displayMonth);
-                const weekdayLetters = ["S", "M", "T", "W", "T", "F", "S"];
-                return (
-                  <div>
-                    <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
-                      {weekdayLetters.map((w, i) => (
-                        <div key={`${w}-${i}`} className="py-1">
-                          {w}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 text-sm text-gray-700">
-                      {weeks.flat().map((day, idx) => {
-                        const isCurrentMonth = day.getMonth() === displayMonth.getMonth();
-                        const dayStr = formatDateLocal(day);
-                        const eventsForDay = events.filter((ev) => ev && ev.date === dayStr && ev.status !== 'rejected');
-                        const isSelected = selected && formatDateLocal(selected) === dayStr;
-                        return (
-                          <button
-                            key={dayStr + "-" + idx}
-                            onClick={() => setSelected(new Date(day))}
-                            className={`relative p-2 h-14 flex flex-col items-start overflow-hidden ${isCurrentMonth ? "bg-white" : "bg-gray-50 text-gray-400"} ${isSelected ? "ring-2 ring-blue-500 rounded-md" : ""}`}
-                          >
-                            <div className="w-full flex items-start justify-between">
-                              <div className="text-sm font-medium">{day.getDate()}</div>
-                            </div>
-                            {/* event indicator (small blue circle) */}
-                            {eventsForDay.length > 0 && (
-                              <div className="absolute bottom-1 right-1 w-3 h-3 bg-blue-500 rounded-full" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-
-          <aside className="w-1/3 flex flex-col min-h-0">
-            <div className="bg-white p-6 rounded-2xl shadow flex-1 overflow-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Events</h3>
-                <div className="flex items-center gap-3">
-                  {loading && <div className="text-sm text-gray-500">Loading…</div>}
-                  {error && <div className="text-sm text-red-500">Error fetching events</div>}
-                  <div className="text-sm text-gray-500">{selected ? selected.toLocaleDateString() : ""}</div>
-                </div>
-              </div>
-
-              <div>
-                {selected ? (
-                  (() => {
-                    const dayStr = formatDateLocal(selected as Date);
-                    const list = events.filter((e) => e.date === dayStr);
-                    if (list.length === 0) return <div className="text-sm text-gray-500">No events for this date.</div>;
-                    return (
-                      <div className="space-y-3">
-                        {list.map((e) => (
-                          <div key={e.id} className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-blue-50 to-white hover:shadow-md transition-shadow">
-                            <div className="font-semibold text-gray-900 text-base mb-2">{e.title || e.course_name || `Event ${e.id}`}</div>
-                            <div className="text-sm text-gray-600 mb-2">
-                              {e.course_name && e.event_type && `${e.course_name} - ${e.event_type}`}
-                              {e.course_name && !e.event_type && e.course_name}
-                              {!e.course_name && e.event_type && e.event_type}
-                            </div>
-                            <div className="text-sm text-gray-700 mb-2">
-                              <span className="font-medium">Time:</span> {fmtTime(e.start_time)} - {fmtTime(e.end_time)}
-                            </div>
-                            {e.tutor_name && <div className="text-sm text-gray-600">Lecturer: {e.tutor_name}</div>}
-                            {e.room_name && <div className="text-xs text-gray-500 mt-2">Room: {e.room_name}</div>}
-                            {e.status && <div className="mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">{e.status}</div>}
+              {viewMode === 'month' ? (
+                (() => {
+                  const weeks = getMonthMatrix(displayMonth);
+                  const weekdayLetters = ["S", "M", "T", "W", "T", "F", "S"];
+                  return (
+                    <div>
+                      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+                        {weekdayLetters.map((w, i) => (
+                          <div key={`${w}-${i}`} className="py-1">
+                            {w}
                           </div>
                         ))}
                       </div>
-                    );
-                  })()
-                ) : (
-                  <div className="text-sm text-gray-500">Select a date to see events.</div>
-                )}
-              </div>
+
+                      <div className="grid grid-cols-7 gap-1 text-sm text-gray-700">
+                        {weeks.flat().map((day, idx) => {
+                          const isCurrentMonth = day.getMonth() === displayMonth.getMonth();
+                          const dayStr = formatDateLocal(day);
+                          const eventsForDay = events.filter((ev) => ev && ev.date === dayStr && ev.status !== 'rejected');
+                          const isSelected = selected && formatDateLocal(selected) === dayStr;
+                          return (
+                            <button
+                              key={dayStr + "-" + idx}
+                              onClick={() => setSelected(new Date(day))}
+                              className={`relative p-2 h-14 flex flex-col items-start overflow-hidden ${isCurrentMonth ? "bg-white" : "bg-gray-50 text-gray-400"} ${isSelected ? "ring-2 ring-blue-500 rounded-md" : ""}`}
+                            >
+                              <div className="w-full flex items-start justify-between">
+                                <div className="text-sm font-medium">{day.getDate()}</div>
+                              </div>
+                              {/* event indicator (small blue circle) */}
+                              {eventsForDay.length > 0 && (
+                                <div className="absolute bottom-1 right-1 w-3 h-3 bg-blue-500 rounded-full" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                (() => {
+                  // week view
+                  const days = getWeekDays(weekStart);
+                  const startHour = 6;
+                  const endHour = 22;
+                  const hourCount = endHour - startHour;
+                  const pxPerMinute = 1; // 1px per minute -> hour = 60px
+                  const containerHeight = hourCount * 60; // px
+
+                  const now = new Date();
+                  const todayStr = formatDateLocal(now);
+
+                  return (
+                    <div className="w-full">
+                      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+                        {days.map((d) => (
+                          <div key={d.toISOString()} className="py-1 font-medium">
+                            <div className="text-sm">{d.toLocaleDateString(undefined, { weekday: 'short' })}</div>
+                            <div className="text-xs text-gray-500">{d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-2">
+                        {/* times column */}
+                        <div className="w-16 text-xs text-gray-500">
+                          <div style={{ height: 24 }} />
+                          <div style={{ height: containerHeight, position: 'relative' }}>
+                            {Array.from({ length: hourCount }).map((_, i) => {
+                              const h = startHour + i;
+                              return (
+                                <div key={i} className="h-16 border-t border-gray-100 flex items-start pr-1" style={{ height: 60 }}>
+                                  <div className="text-xs text-right w-full pr-2">{String(h).padStart(2,'0')}:00</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* days columns */}
+                        <div className="flex-1 grid grid-cols-7 gap-2 overflow-auto">
+                          {days.map((d) => {
+                            const dayStr = formatDateLocal(d);
+                            const dayEvents = events.filter((ev) => ev && ev.date === dayStr && ev.status !== 'rejected');
+                            return (
+                              <div key={dayStr} className="relative bg-white border rounded-md" style={{ minHeight: containerHeight }}>
+                                <div style={{ position: 'relative', height: containerHeight }}>
+                                  {dayEvents.map((ev: any) => {
+                                    // parse times
+                                    const parseTime = (t: string) => {
+                                      const [hh, mm] = (t || '00:00').split(':').map((x: string) => parseInt(x, 10));
+                                      return hh * 60 + mm;
+                                    };
+                                    const evStart = parseTime(ev.start_time || '00:00');
+                                    const evEnd = parseTime(ev.end_time || ev.start_time || '00:00');
+                                    const topMinutes = Math.max(0, evStart - startHour * 60);
+                                    const duration = Math.max(15, evEnd - evStart);
+                                    const top = topMinutes * pxPerMinute;
+                                    const height = duration * pxPerMinute;
+                                    return (
+                                      <div key={ev.id} className="absolute left-1 right-1 bg-blue-600 text-white rounded-md p-2 text-[12px] shadow overflow-hidden" style={{ top: top, height: height }}>
+                                        <div className="font-semibold text-sm leading-tight truncate">{ev.title || ev.course_name || `Event ${ev.id}`}</div>
+                                        <div className="text-[11px] leading-tight">{fmtTime(ev.start_time)} - {fmtTime(ev.end_time)}</div>
+                                        {ev.course_name && <div className="text-[11px] leading-tight">{ev.course_name}{ev.event_type ? ` • ${ev.event_type}` : ''}</div>}
+                                        {ev.tutor_name && <div className="text-[11px] leading-tight">Instructor: {ev.tutor_name}</div>}
+                                        {ev.room_name && <div className="text-[11px] leading-tight">Room: {ev.room_name}</div>}
+                                        {ev.notes && <div className="text-[11px] truncate">{ev.notes}</div>}
+                                        {ev.status && <div className="mt-1 inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-white/20">{ev.status}</div>}
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* current time indicator */}
+                                  {formatDateLocal(d) === todayStr && (() => {
+                                    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+                                    const relative = nowMinutes - startHour * 60;
+                                    if (relative >= 0 && relative <= hourCount * 60) {
+                                      return (
+                                        <div key={`now-${dayStr}`} style={{ position: 'absolute', top: relative * pxPerMinute, left: 0, right: 0 }}>
+                                          <div className="h-[2px] bg-red-500 w-full" />
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
             </div>
-          </aside>
+          </div>
+
+          {viewMode === 'month' && (
+            <aside className="w-1/3 flex flex-col min-h-0">
+              <div className="bg-white p-6 rounded-2xl shadow flex-1 overflow-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Events</h3>
+                  <div className="flex items-center gap-3">
+                    {loading && <div className="text-sm text-gray-500">Loading…</div>}
+                    {error && <div className="text-sm text-red-500">Error fetching events</div>}
+                    <div className="text-sm text-gray-500">{selected ? selected.toLocaleDateString() : ""}</div>
+                  </div>
+                </div>
+
+                <div>
+                  {selected ? (
+                    (() => {
+                      const dayStr = formatDateLocal(selected as Date);
+                      const list = events.filter((e) => e.date === dayStr);
+                      if (list.length === 0) return <div className="text-sm text-gray-500">No events for this date.</div>;
+                      return (
+                        <div className="space-y-3">
+                          {list.map((e) => (
+                            <div key={e.id} className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-blue-50 to-white hover:shadow-md transition-shadow">
+                              <div className="font-semibold text-gray-900 text-base mb-2">{e.title || e.course_name || `Event ${e.id}`}</div>
+                              <div className="text-sm text-gray-600 mb-2">
+                                {e.course_name && e.event_type && `${e.course_name} - ${e.event_type}`}
+                                {e.course_name && !e.event_type && e.course_name}
+                                {!e.course_name && e.event_type && e.event_type}
+                              </div>
+                              <div className="text-sm text-gray-700 mb-2">
+                                <span className="font-medium">Time:</span> {fmtTime(e.start_time)} - {fmtTime(e.end_time)}
+                              </div>
+                              {e.tutor_name && <div className="text-sm text-gray-600">Lecturer: {e.tutor_name}</div>}
+                              {e.room_name && <div className="text-xs text-gray-500 mt-2">Room: {e.room_name}</div>}
+                              {e.status && <div className="mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">{e.status}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-sm text-gray-500">Select a date to see events.</div>
+                  )}
+                </div>
+              </div>
+            </aside>
+          )}
         </div>
       </main>
     </div>

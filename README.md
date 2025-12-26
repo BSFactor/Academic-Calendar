@@ -26,6 +26,16 @@ npm run build
 
 This will create a `dist/` directory with the compiled assets.
 
+> NOTE: During development you can run the frontend dev server instead of building.
+>
+> ```bash
+> cd frontend
+> npm install
+> npm run dev
+> ```
+>
+> The dev server serves the app at: http://localhost:8080/ (open this URL after running `npm run dev`).
+
 ### 2. Backend Setup
 
 Create a virtual environment and install dependencies.
@@ -64,10 +74,7 @@ Start the Django development server.
 python manage.py runserver
 ```
 
-Access the application at: **[http://127.0.0.1:8000/](http://127.0.0.1:8000/)**
-
--   **Login**: Use the superuser credentials created in Step 3.
--   **Login via Email**: You can log in using the email address associated with your user account.
+Run the server as shown above; you do not need to directly open the backend URL in your browser during development. If you're running the frontend dev server (`npm run dev`), open the frontend at http://localhost:8080/ instead.
 
 ## Features
 
