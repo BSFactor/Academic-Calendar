@@ -15,6 +15,7 @@ import CalendarPage from "./pages/Calendar";
 import CreateEvents from "./pages/CreateEvents";
 import ApproveEvents from "./pages/ApproveEvents";
 import AuditTrail from "./pages/AuditTrail";
+import ImportStudents from "./pages/ImportStudents";
 import RequireAuth from "./components/RequireAuth";
 import RequireRole from "./components/RequireRole";
 
@@ -48,6 +49,16 @@ const App = () => (
               <RequireAuth>
                 <RequireRole roles={["department_assistant", "administrator"]}>
                   <ApproveEvents />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/import-students"
+            element={
+              <RequireAuth>
+                <RequireRole roles={["department_assistant", "administrator"]}>
+                  <ImportStudents />
                 </RequireRole>
               </RequireAuth>
             }

@@ -137,6 +137,21 @@ export default function Sidebar() {
                 Approve Events
               </Button>
             )}
+            {showApprove && (
+              <Button
+                variant="ghost"
+                className={`justify-start ${getButtonClassName("/import-students")}`}
+                onClick={() => navigate("/import-students")}
+                title="Import Students"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 5 17 10" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                  <line x1="12" y1="5" x2="12" y2="19" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                </svg>
+                Import Students
+              </Button>
+            )}
             {role === "administrator" && (
               <Button
                 variant="ghost"
@@ -216,6 +231,19 @@ export default function Sidebar() {
                     d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                     clipRule="evenodd"
                   />
+                </svg>
+              </button>
+            )}
+            {showApprove && (
+              <button
+                onClick={() => navigate("/import-students")}
+                className={getCollapsedButtonClassName("/import-students")}
+                title="Import Students"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 5 17 10" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                  <line x1="12" y1="5" x2="12" y2="19" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
                 </svg>
               </button>
             )}
