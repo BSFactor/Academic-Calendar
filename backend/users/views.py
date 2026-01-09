@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from .models import StudentProfile
+from calendar_app.models import Major
 from .serializers import StudentProfileSerializer, UserSerializer
 from .permissions import IsDAAOrAdminOrHasModelPerm
 from rest_framework.permissions import IsAuthenticated
@@ -74,19 +75,49 @@ class StudentImportView(APIView):
 		if not rows:
 			return Response({"detail": "Excel file is empty."}, status=status.HTTP_400_BAD_REQUEST)
 
-		headers = [str(h).strip().lower() if h is not None else "" for h in rows[0]]
+		# Normalize headers (lowercase, collapse spaces, remove punctuation)
+		import re
 
-		# Determine column indices for required fields
+		def normalize(s):
+			if s is None:
+				return ""
+			s = str(s)
+			s = s.strip().lower()
+			# replace non-alphanumeric with space, collapse spaces
+			s = re.sub(r"[^0-9a-z]+", " ", s)
+			s = re.sub(r"\s+", " ", s).strip()
+			return s
+
+		raw_headers = rows[0]
+		headers = [normalize(h) for h in raw_headers]
+
+		# Flexible matching for expected columns
 		def find_col(names):
-			for n in names:
-				if n in headers:
-					return headers.index(n)
+			for i, h in enumerate(headers):
+				for n in names:
+					if normalize(n) == h:
+						return i
 			return None
 
-		name_col = find_col(["name", "full name"]) or 0
-		dob_col = find_col(["dob", "date of birth", "birthdate"]) or 1
-		email_col = find_col(["email", "login email"]) or 2
-		sid_col = find_col(["student id", "student_id", "studentid"]) or 3
+		# required fields
+		name_col = find_col(["name", "full name", "student name", "student_name"])
+		dob_col = find_col(["dob", "date of birth", "birthdate", "date of birth (yyyy-mm-dd)"])
+		email_col = find_col(["email", "student email", "student_email", "email address"])
+		sid_col = find_col(["student id", "student_id", "studentid", "id"])
+		major_col = find_col(["major", "department", "faculty"])
+
+		missing = []
+		if name_col is None:
+			missing.append("name / student name")
+		if dob_col is None:
+			missing.append("dob / date of birth")
+		if email_col is None:
+			missing.append("email / student email")
+		if sid_col is None:
+			missing.append("student id")
+
+		if missing:
+			return Response({"detail": f"Missing required columns in Excel header: {', '.join(missing)}", "found_headers": raw_headers}, status=status.HTTP_400_BAD_REQUEST)
 
 		user_model = get_user_model()
 		created = []
@@ -96,10 +127,11 @@ class StudentImportView(APIView):
 
 		for idx, row in enumerate(rows[1:], start=2):
 			try:
-				name = row[name_col] if name_col < len(row) else None
-				dob_val = row[dob_col] if dob_col < len(row) else None
-				email = row[email_col] if email_col < len(row) else None
-				student_id = row[sid_col] if sid_col < len(row) else None
+				name = row[name_col] if name_col is not None and name_col < len(row) else None
+				dob_val = row[dob_col] if dob_col is not None and dob_col < len(row) else None
+				email = row[email_col] if email_col is not None and email_col < len(row) else None
+				student_id = row[sid_col] if sid_col is not None and sid_col < len(row) else None
+				major_val = row[major_col] if major_col is not None and major_col < len(row) else None
 
 				if not all((name, dob_val, email, student_id)):
 					raise ValueError("Missing one of required fields: name, dob, email, student_id")
@@ -163,7 +195,18 @@ class StudentImportView(APIView):
 						pass
 
 					# create student profile; set a default year=1 if not provided
-					profile = StudentProfile.objects.create(user=user, name=str(name).strip(), email=email_clean, dob=dob, student_id=sid_clean, year=1)
+					profile_kwargs = dict(user=user, name=str(name).strip(), email=email_clean, dob=dob, student_id=sid_clean, year=1)
+					# attach major if provided
+					try:
+						if major_val:
+							major_name = str(major_val).strip()
+							if major_name:
+								major_obj, _ = Major.objects.get_or_create(name=major_name)
+								profile_kwargs['major'] = major_obj
+					except Exception:
+						pass
+
+					profile = StudentProfile.objects.create(**profile_kwargs)
 					created.append({"row": idx, "student_id": profile.student_id, "username": user.username})
 			except IntegrityError as ie:
 				errors.append({"row": idx, "error": str(ie)})
