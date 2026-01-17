@@ -35,6 +35,7 @@ type EventItem = {
   event_type?: string;
   location?: string;
   notes?: string;
+  tutor?: number;
   tutor_name?: string | null;
 };
 
@@ -43,7 +44,6 @@ export default function CalendarPage() {
   const profile = getLocalProfile();
 
   const isStudent = profile?.role === "student";
-  // Assuming authority means admin or DAA (Department Academic Assistant)
   // Assuming authority means admin or DAA (Department Academic Assistant)
   const hasAuthority = ['administrator', 'department_assistant'].includes(profile?.role || '');
   const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
@@ -60,6 +60,7 @@ export default function CalendarPage() {
   const [selectedLecturer, setSelectedLecturer] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null); // State for editing modal
@@ -68,6 +69,13 @@ export default function CalendarPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStart, setExportStart] = useState("");
   const [exportEnd, setExportEnd] = useState("");
+
+  // Time Filter state
+  const [filterStartHour, setFilterStartHour] = useState("");
+  const [filterStartMin, setFilterStartMin] = useState("");
+  const [filterEndHour, setFilterEndHour] = useState("");
+  const [filterEndMin, setFilterEndMin] = useState("");
+
 
 
   // Set default export dates when opening (start/end of current month)
@@ -85,10 +93,48 @@ export default function CalendarPage() {
   const lecturers: string[] = Array.from(new Set(events.map((e) => e.tutor_name).filter((x): x is string => !!x)));
   const courses: string[] = Array.from(new Set(events.map((e) => e.course_name).filter((x): x is string => !!x)));
   const eventTypes: string[] = Array.from(new Set(events.map((e) => e.event_type).filter((x): x is string => !!x)));
+  const rooms: string[] = Array.from(new Set(events.map((e) => e.room_name).filter((x): x is string => !!x))).sort();
   const filteredEvents = events.filter((e) => {
     if (selectedLecturer && e.tutor_name !== selectedLecturer) return false;
     if (selectedCourse && e.course_name !== selectedCourse) return false;
     if (selectedEventType && e.event_type !== selectedEventType) return false;
+    if (selectedRoom && e.room_name !== selectedRoom) return false;
+
+    // Time Filter Logic
+    if (filterStartHour || filterEndHour) { // Only filter if at least one hour is specified
+      const parseTime = (t: string | undefined): number => {
+        if (!t) return 0;
+        const [hh, mm] = t.split(':').map(x => parseInt(x, 10));
+        return (hh * 60) + (mm || 0);
+      };
+      const eventStart = parseTime(e.start_time);
+      const eventEnd = parseTime(e.end_time || e.start_time); // fallback if end is missing? usually required.
+
+      // Determine Filter Range
+      let fStart = 0;   // default 00:00
+      let fEnd = 1439;  // default 23:59 (24*60 - 1)
+
+      if (filterStartHour) {
+        const h = parseInt(filterStartHour, 10) || 0;
+        const m = parseInt(filterStartMin, 10) || 0;
+        fStart = h * 60 + m;
+      }
+
+      if (filterEndHour) {
+        const h = parseInt(filterEndHour, 10) || 0;
+        const m = parseInt(filterEndMin, 10) || 0;
+        fEnd = h * 60 + m;
+      }
+
+      // Logic: Event START is in range OR Event END is in range
+      // "Show events that either ends in the period or starts in the period"
+      const startInRange = eventStart >= fStart && eventStart <= fEnd;
+      const endInRange = eventEnd >= fStart && eventEnd <= fEnd;
+
+      if (!startInRange && !endInRange) return false;
+    }
+
+
     return true;
   });
 
@@ -314,6 +360,29 @@ export default function CalendarPage() {
                 )}
               </div>
               <div className="ml-auto flex items-center gap-2">
+                <Select value={viewMode} onValueChange={(value: 'month' | 'week') => {
+                  if (value === 'month') {
+                    setViewMode('month');
+                  } else {
+                    setViewMode('week');
+                    const now = new Date();
+                    const s = new Date(now);
+                    s.setDate(now.getDate() - now.getDay());
+                    s.setHours(0, 0, 0, 0);
+                    setWeekStart(s);
+                  }
+                }}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Month</SelectItem>
+                    <SelectItem value="week">Week</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button variant="outline" size="sm">Report</Button>
+
                 <Dialog open={exportOpen} onOpenChange={setExportOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -364,29 +433,7 @@ export default function CalendarPage() {
             {/* Filters: View Mode, Lecturer (staff only), Course */}
             <div className="mb-4 px-2">
               <div className="bg-white p-3 rounded-lg shadow-sm flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-medium text-gray-700">View</div>
-                  <Select value={viewMode} onValueChange={(value: 'month' | 'week') => {
-                    if (value === 'month') {
-                      setViewMode('month');
-                    } else {
-                      setViewMode('week');
-                      const now = new Date();
-                      const s = new Date(now);
-                      s.setDate(now.getDate() - now.getDay());
-                      s.setHours(0, 0, 0, 0);
-                      setWeekStart(s);
-                    }
-                  }}>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="month">Month</SelectItem>
-                      <SelectItem value="week">Week</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
 
                 {!isStudent && (
                   <div className="flex items-center gap-2">
@@ -433,6 +480,61 @@ export default function CalendarPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium text-gray-700">Room</div>
+                  <Select value={selectedRoom ?? '__all__'} onValueChange={(v: string) => setSelectedRoom(v === '__all__' ? null : v)}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All</SelectItem>
+                      {rooms.map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Time Filter Inputs */}
+                <div className="flex items-center gap-2 bg-white p-1 rounded-md border border-gray-200 shadow-sm">
+                  <span className="text-xs font-medium text-gray-500 px-1">Time:</span>
+                  <div className="flex items-center">
+                    <Input
+                      className="w-12 h-8 text-center p-1"
+                      placeholder="HH"
+                      maxLength={2}
+                      value={filterStartHour}
+                      onChange={e => setFilterStartHour(e.target.value)}
+                    />
+                    <span className="mx-1">:</span>
+                    <Input
+                      className="w-12 h-8 text-center p-1"
+                      placeholder="MM"
+                      maxLength={2}
+                      value={filterStartMin}
+                      onChange={e => setFilterStartMin(e.target.value)}
+                    />
+                  </div>
+                  <span className="text-gray-400">-</span>
+                  <div className="flex items-center">
+                    <Input
+                      className="w-12 h-8 text-center p-1"
+                      placeholder="HH"
+                      maxLength={2}
+                      value={filterEndHour}
+                      onChange={e => setFilterEndHour(e.target.value)}
+                    />
+                    <span className="mx-1">:</span>
+                    <Input
+                      className="w-12 h-8 text-center p-1"
+                      placeholder="MM"
+                      maxLength={2}
+                      value={filterEndMin}
+                      onChange={e => setFilterEndMin(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -658,8 +760,8 @@ export default function CalendarPage() {
                               )}
                               {e.status && <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full ${e.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-700'}`}>{e.status}</div>}
 
-                              {/* Edit Event Button for Authorized Users */}
-                              {hasAuthority && (
+                              {/* Edit Event Button for Authorized Users or Event Owner (Tutor) */}
+                              {(hasAuthority || profile?.role === "academic_assistant" || (profile?.role === "tutor" && e.tutor === profile?.id)) && (
                                 <div className="mt-3 pt-3 border-t border-blue-100 flex justify-end">
                                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setEditingEvent(e)}>
                                     Edit Event
