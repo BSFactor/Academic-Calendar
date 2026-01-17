@@ -303,6 +303,12 @@ def tutor_schedules(request, tutor_id):
     except Exception:
         return Response({"detail": "invalid date format"}, status=400)
     events = ScheduledEvent.objects.filter(tutor_id=tutor_id, date=d)
+    
+    # Exclude logic for editing
+    exclude_id = request.query_params.get("exclude")
+    if exclude_id:
+        events = events.exclude(id=exclude_id)
+
     data = [{"start_time": e.start_time.strftime("%H:%M"), "end_time": e.end_time.strftime("%H:%M")} for e in events]
     return Response(data)
 
@@ -324,7 +330,14 @@ def rooms_available(request):
     if not s or not e:
         return Response({"detail": "invalid time format, expected HH:MM"}, status=400)
     # rooms that do NOT have any events overlapping
-    busy_rooms = ScheduledEvent.objects.filter(date=d).filter(~Q(end_time__lte=s) & ~Q(start_time__gte=e)).values_list('room', flat=True)
+    busy_qs = ScheduledEvent.objects.filter(date=d).filter(~Q(end_time__lte=s) & ~Q(start_time__gte=e))
+    
+    # Exclude logic for editing
+    exclude_id = request.query_params.get("exclude")
+    if exclude_id:
+        busy_qs = busy_qs.exclude(id=exclude_id)
+        
+    busy_rooms = busy_qs.values_list('room', flat=True)
     qs = Room.objects.exclude(id__in=list(busy_rooms))
     data = [{"id": r.id, "name": r.name} for r in qs]
     return Response(data)
