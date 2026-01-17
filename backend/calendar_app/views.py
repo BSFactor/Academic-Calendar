@@ -220,23 +220,41 @@ def edit_event(request, event_id):
     # if event.status != "pending":
     #    return Response({"error": "Only pending events can be edited or cancelled"}, status=400)
 
-    # Only academic assistants, department assistants and administrators can edit pending events
-    res = _require_role_or_404(request, ("academic_assistant", "department_assistant", "administrator"))
-    if res:
-        return res
+    # Authorization:
+    # 1. Admin / AA / DAA can always edit
+    # 2. Tutor can edit ONLY if they are the event owner
+    
+    user_role = getattr(request.user, "role", "")
+    is_authority = user_role in ("academic_assistant", "department_assistant", "administrator")
+    is_owner = (user_role == "tutor" and event.tutor == request.user)
+
+    if not (is_authority or is_owner):
+        return Response({"detail": "Permission denied."}, status=403)
 
     data = request.data.copy() if isinstance(request.data, dict) else dict(request.data)
     action = data.pop("action", None)
     if action == "cancel":
-        # allow creator or AA/admin (checked above)
+        # allow creator or AA/admin
         event.status = "cancelled"
         event.save()
         return Response({"message": "Event cancelled"})
 
-    # perform partial update; serializer protects read-only fields (status)
-    serializer = ScheduledEventSerializer(event, data=request.data, partial=True)
+    # If tutor or AA edits, force status back to pending
+    # AA can edit ANY event (is_authority=True), but needs status reset.
+    # DAA/Admin can edit ANY event and KEEP status.
+    
+    should_reset_status = (is_owner and user_role == "tutor") or (user_role == "academic_assistant")
+    
+    if should_reset_status:
+        event.status = "pending"
+    
+    # helper for partial update
+    serializer = ScheduledEventSerializer(event, data=data, partial=True)
     if serializer.is_valid():
         serializer.save()
+        # if we forcibly changed status, save it (serializer might not if it's read-only)
+        if event.status == "pending":
+            event.save()
         return Response(serializer.data)
     return Response(serializer.errors, status=400)
 

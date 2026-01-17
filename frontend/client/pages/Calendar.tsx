@@ -35,6 +35,7 @@ type EventItem = {
   event_type?: string;
   location?: string;
   notes?: string;
+  tutor?: number;
   tutor_name?: string | null;
 };
 
@@ -658,8 +659,8 @@ export default function CalendarPage() {
                               )}
                               {e.status && <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full ${e.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-700'}`}>{e.status}</div>}
 
-                              {/* Edit Event Button for Authorized Users */}
-                              {hasAuthority && (
+                              {/* Edit Event Button for Authorized Users or Event Owner (Tutor) */}
+                              {(hasAuthority || profile?.role === "academic_assistant" || (profile?.role === "tutor" && e.tutor === profile?.id)) && (
                                 <div className="mt-3 pt-3 border-t border-blue-100 flex justify-end">
                                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setEditingEvent(e)}>
                                     Edit Event
