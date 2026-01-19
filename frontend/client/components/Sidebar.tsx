@@ -71,6 +71,33 @@ export default function Sidebar() {
 
   // Notifications Popup State
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Fetch notifications when popup opens
+  useEffect(() => {
+    if (showNotifications) {
+      const fetchNotifications = async () => {
+        try {
+          // Use current profile/token
+          const token = localStorage.getItem("token");
+          if (!token) return;
+
+          const res = await fetch("http://127.0.0.1:8000/api/calendar/notifications/", {
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setNotifications(data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch notifications", error);
+        }
+      };
+      fetchNotifications();
+    }
+  }, [showNotifications]);
 
   return (
     <div className="hidden md:block mt-2 mb-2 ml-2 mr-0 relative">
@@ -356,10 +383,22 @@ export default function Sidebar() {
             </button>
           </div>
 
-          <div className="flex-1 p-4 overflow-y-auto">
-            <div className="text-sm text-gray-500 text-center mt-10">
+          <div className="flex-1 p-4 overflow-y-auto space-y-3">
+            {notifications.length === 0 ? (
+              <div className="text-sm text-gray-500 text-center mt-10">
+                No new notifications
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <div key={n.id} className={`p-3 rounded-md text-sm border ${n.is_read ? 'bg-white border-gray-100' : 'bg-blue-50 border-blue-100'}`}>
+                  <p className="text-gray-800 mb-1">{n.message}</p>
+                  <span className="text-xs text-gray-500">{new Date(n.created_at).toLocaleString()}</span>
+                </div>
+              ))
+            )}
+            {/* <div className="text-sm text-gray-500 text-center mt-10">
               No new notifications
-            </div>
+            </div> */}
           </div>
         </div>
       )}

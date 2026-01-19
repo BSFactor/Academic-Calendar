@@ -48,17 +48,29 @@ def _notify_related_users(event, action_description):
         
     # 3. Staff (Admins, DAA, AA)
     staff_users = User.objects.filter(role__in=["administrator", "department_assistant", "academic_assistant"])
+    
+    # Store IDs to avoid duplicates if user falls into multiple categories (e.g. staff who is also a tutor)
+    notified_ids = {n.user.id for n in notifications}
+
     for staff in staff_users:
-        # Avoid duplicates if staff is also tutor (unlikely but possible)
-        if event.tutor and staff.id == event.tutor.id:
+        if staff.id in notified_ids:
             continue
             
+        Actor = "System"
+        if event.tutor:
+             Actor = event.tutor.username
+        
+        # If the action was literally performed by this staff member, we still notify them (as per user request "nothing shows up")
+        # Or message slightly differently? "You created..." vs "X created..."
+        # For now, uniform message is fine.
+        
         notif = Notification(
             user=staff,
-            message=f"Event '{event.title}' ({event.course.name}) was {action_description} by {event.tutor if event.tutor else 'System'}.",
+            message=f"Event '{event.title}' ({event.course.name}) was {action_description}.", 
             event=event
         )
         notifications.append(notif)
+        notified_ids.add(staff.id)
         
     if notifications:
         Notification.objects.bulk_create(notifications)
@@ -357,7 +369,15 @@ def edit_event(request, event_id):
         # Let's assume strict workflow: modifying an APPROVED event -> Change Request (unless maybe Admin forces it, but let's stick to the request).
         # "The first one is to create another identical event..."
         
-        if original_status == "approved":
+        # Check if we should create a Change Request instead of direct edit
+        # Only require Change Request for Tutor and AA
+        
+        should_create_change_request = (
+            original_status == "approved" 
+            and user_role not in ("administrator", "department_assistant")
+        )
+
+        if should_create_change_request:
             # Clone Approach: Create NEW event with status='request_change' linked to this one
             # copying fields from the serializer validated data + existing event data
             new_data = serializer.validated_data
@@ -636,3 +656,29 @@ def get_audit_logs(request):
     logs = AuditLog.objects.all().order_by("-timestamp")
     serializer = AuditLogSerializer(logs, many=True)
     return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_notifications(request):
+    """
+    Returns readonly list of notifications for the current user.
+    Ordered by most recent first.
+    """
+    try:
+        # Fetch notifications
+        notifs = Notification.objects.filter(user=request.user).order_by('-created_at')[:50] # Limit to 50 for now
+        
+        data = []
+        for n in notifs:
+            data.append({
+                "id": n.id,
+                "message": n.message,
+                "is_read": n.is_read,
+                "created_at": n.created_at.isoformat(),
+            })
+            
+        return Response(data, status=200)
+    except Exception as e:
+        logger.error(f"Error fetching notifications for user {request.user.id}: {e}")
+        return Response({"detail": "Error fetching notifications"}, status=500)
