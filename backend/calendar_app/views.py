@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
 from django.contrib.auth import get_user_model
-from .models import ScheduledEvent, Course, Room, AuditLog
+from .models import ScheduledEvent, Course, Room, AuditLog, Notification
 from .serializers import ScheduledEventSerializer, AuditLogSerializer
 from users.models import StudentProfile
 import datetime
@@ -13,6 +13,65 @@ import logging
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
+
+
+def _notify_related_users(event, action_description):
+    """
+    Creates notifications for users related to an event operation.
+    Related users:
+    - Students taking the course (match by major + year)
+    - The tutor assigned to the event
+    - Admin/DAA/AA staff
+    """
+    notifications = []
+    
+    # 1. Students
+    if event.course and event.course.major:
+        students = StudentProfile.objects.filter(major=event.course.major, year=event.course.year).select_related('user')
+        for sp in students:
+            if sp.user:
+                notif = Notification(
+                    user=sp.user,
+                    message=f"Event '{event.title}' for course '{event.course.name}' was {action_description}.",
+                    event=event
+                )
+                notifications.append(notif)
+                
+    # 2. Tutor
+    if event.tutor:
+        notif = Notification(
+            user=event.tutor,
+            message=f"Your event '{event.title}' for '{event.course.name}' was {action_description}.",
+            event=event
+        )
+        notifications.append(notif)
+        
+    # 3. Staff (Admins, DAA, AA)
+    staff_users = User.objects.filter(role__in=["administrator", "department_assistant", "academic_assistant"])
+    
+    # Store IDs to avoid duplicates if user falls into multiple categories (e.g. staff who is also a tutor)
+    notified_ids = {n.user.id for n in notifications}
+
+    for staff in staff_users:
+        if staff.id in notified_ids:
+            continue
+            
+        Actor = "System"
+        if event.tutor:
+             Actor = event.tutor.username
+        
+        notif = Notification(
+            user=staff,
+            message=f"Event '{event.title}' ({event.course.name}) was {action_description}.", 
+            event=event
+        )
+        notifications.append(notif)
+        notified_ids.add(staff.id)
+        
+    if notifications:
+        Notification.objects.bulk_create(notifications)
+        logger.info(f"Created {len(notifications)} notifications for action '{action_description}' on event {event.id}")
+
 
 def _parse_time(t: str):
     try:
@@ -154,9 +213,10 @@ def create_event(request):
         # Create audit log for event creation
         try:
             AuditLog.objects.create(user=request.user, action='createEvent', event=serializer.instance)
+            _notify_related_users(serializer.instance, "created")
             logger.info(f"Audit log created for event creation: event_id={serializer.instance.id}, user={request.user.id}")
         except Exception as e:
-            logger.exception(f"Failed to create audit log for event creation: {e}")
+            logger.exception(f"Failed to create audit log/notification for event creation: {e}")
         return Response(serializer.data, status=201)
     else:
         logger.warning(f"ScheduledEvent serializer errors: {serializer.errors}")
@@ -175,15 +235,47 @@ def approve_event(request, event_id):
     if res:
         return res
 
+    
+    # Check if this is a Change Request approval (indicated by status='request_change' and having a related_event)
+    if event.status == "request_change" and event.related_event:
+        # Merge changes to parent
+        parent = event.related_event
+        parent.title = event.title
+        parent.date = event.date
+        parent.start_time = event.start_time
+        parent.end_time = event.end_time
+        parent.room = event.room
+        parent.tutor = event.tutor
+        parent.course = event.course
+        parent.event_type = event.event_type
+        # parent.status remains 'approved' (or we explicitly set it)
+        parent.status = "approved"
+        parent.save()
+        
+        # Notify about the approval/merge
+        try:
+            AuditLog.objects.create(user=request.user, action='approveEvent', event=parent)
+            _notify_related_users(parent, "updated (Change Request Approved)")
+            logger.info(f"Change Request merged: child={event.id} -> parent={parent.id}")
+        except Exception as e:
+            logger.exception(f"Failed to log/notify change request approval: {e}")
+            
+        # Delete the temporary change request event
+        event.delete()
+        
+        return Response({"message": "Change Request approved and merged."})
+
+    # Normal approval for pending events
     event.status = "approved"
     event.save()
 
     # Create audit log for event approval
     try:
         AuditLog.objects.create(user=request.user, action='approveEvent', event=event)
+        _notify_related_users(event, "approved")
         logger.info(f"Audit log created for event approval: event_id={event.id}, user={request.user.id}")
     except Exception as e:
-        logger.exception(f"Failed to create audit log for event approval: {e}")
+        logger.exception(f"Failed to create audit log/notification for event approval: {e}")
 
     return Response({"message": "Event approved"})
 
@@ -204,6 +296,12 @@ def reject_event(request, event_id):
     event.status = "rejected"
     event.save()
 
+    try:
+        AuditLog.objects.create(user=request.user, action='rejectEvent', event=event)
+        _notify_related_users(event, "rejected")
+    except Exception as e:
+        logger.exception(f"Failed to create audit log/notification for rejection: {e}")
+
     return Response({"message": "Event rejected"})
 
 
@@ -220,23 +318,124 @@ def edit_event(request, event_id):
     # if event.status != "pending":
     #    return Response({"error": "Only pending events can be edited or cancelled"}, status=400)
 
-    # Only academic assistants, department assistants and administrators can edit pending events
-    res = _require_role_or_404(request, ("academic_assistant", "department_assistant", "administrator"))
-    if res:
-        return res
+    # Authorization:
+    # 1. Admin / AA / DAA can always edit
+    # 2. Tutor can edit ONLY if they are the event owner
+    
+    user_role = getattr(request.user, "role", "")
+    is_authority = user_role in ("academic_assistant", "department_assistant", "administrator")
+    is_owner = (user_role == "tutor" and event.tutor == request.user)
+
+    if not (is_authority or is_owner):
+        return Response({"detail": "Permission denied."}, status=403)
 
     data = request.data.copy() if isinstance(request.data, dict) else dict(request.data)
     action = data.pop("action", None)
     if action == "cancel":
-        # allow creator or AA/admin (checked above)
+        # allow creator or AA/admin
         event.status = "cancelled"
         event.save()
+        
+        try:
+            AuditLog.objects.create(user=request.user, action='cancelEvent', event=event)
+            _notify_related_users(event, "cancelled")
+        except Exception as e:
+            logger.exception(f"Failed to create audit log/notification for cancel: {e}")
+            
         return Response({"message": "Event cancelled"})
 
-    # perform partial update; serializer protects read-only fields (status)
-    serializer = ScheduledEventSerializer(event, data=request.data, partial=True)
+    # If tutor or AA edits, force status back to pending
+    # AA can edit ANY event (is_authority=True), but needs status reset.
+    # DAA/Admin can edit ANY event and KEEP status.
+    
+    original_status = event.status
+    should_reset_status = (is_owner and user_role == "tutor") or (user_role == "academic_assistant")
+    
+    if should_reset_status:
+        event.status = "pending"
+    
+    # helper for partial update
+    serializer = ScheduledEventSerializer(event, data=data, partial=True)
     if serializer.is_valid():
+        # Check if we should create a Change Request instead of direct edit
+        # If event is ALREADY approved, and user is NOT Admin/DAA (i.e. is Tutor or AA), or even if Admin wants to follow protocol?
+        # User request: "For AA and tutor, upon editing approved events... make this a change request."
+        # "DAA and Admin... can now approve the request_change events as if they are pending events."
+        # This implies DAA/Admin MIGHT want to just direct edit, OR approve requests.
+        # Let's assume strict workflow: modifying an APPROVED event -> Change Request (unless maybe Admin forces it, but let's stick to the request).
+        # "The first one is to create another identical event..."
+        
+        # Check if we should create a Change Request instead of direct edit
+        # Only require Change Request for Tutor and AA
+        
+        should_create_change_request = (
+            original_status == "approved" 
+            and user_role not in ("administrator", "department_assistant")
+        )
+
+        if should_create_change_request:
+            # Clone Approach: Create NEW event with status='request_change' linked to this one
+            # copying fields from the serializer validated data + existing event data
+            new_data = serializer.validated_data
+            
+            # Create new instance
+            # We need to manually construct the payload for the new event based on merged data
+            # Use the 'event' object as base, and update with 'new_data'
+            
+            # We can use the serializer to save a NEW instance if we pass instance=None?
+            # No, 'serializer' is bound to 'event'.
+            
+            # Let's create a new serializer for the new event
+            # Merge current event data with new data
+            # But 'data' might be partial.
+            
+            # Simple way:
+            # 1. iterate fields in new_data, update a temporary copy or dictionary
+            
+            new_event_payload = {
+                "title": new_data.get("title", event.title),
+                "date": new_data.get("date", event.date),
+                "start_time": new_data.get("start_time", event.start_time),
+                "end_time": new_data.get("end_time", event.end_time),
+                "event_type": new_data.get("event_type", event.event_type),
+                "status": "request_change",
+                # Foreign keys are tricky in validated_data (they are model instances)
+                "course": new_data.get("course", event.course).id,
+                "tutor": new_data.get("tutor", event.tutor).id if new_data.get("tutor", event.tutor) else None,
+                "room": new_data.get("room", event.room).id,
+                "related_event": event.id 
+            }
+            
+            # Use serializer to creating new
+            new_serializer = ScheduledEventSerializer(data=new_event_payload)
+            if new_serializer.is_valid():
+                instance = new_serializer.save()
+                instance.status = "request_change"
+                instance.save()
+                
+                # Notify/Log (Change Request Created)
+                try:
+                    AuditLog.objects.create(user=request.user, action='createEvent', event=new_serializer.instance) # Action could be 'createChangeRequest' but 'createEvent' works
+                    _notify_related_users(event, f"Change Request Created (ID: {new_serializer.instance.id})") # Notify on PARENT event context?
+                except Exception:
+                    pass
+                    
+                return Response(new_serializer.data, status=201)
+            else:
+                return Response(new_serializer.errors, status=400)
+
+        # Standard edit path (for pending events)
         serializer.save()
+        # if we forcibly changed status, save it (serializer might not if it's read-only)
+        if event.status == "pending":
+            event.save()
+        
+        try:
+            AuditLog.objects.create(user=request.user, action='editEvent', event=event)
+            _notify_related_users(event, "updated")
+        except Exception as e:
+            logger.exception(f"Failed to create audit log/notification for edit: {e}")
+
         return Response(serializer.data)
     return Response(serializer.errors, status=400)
 
@@ -285,6 +484,12 @@ def tutor_schedules(request, tutor_id):
     except Exception:
         return Response({"detail": "invalid date format"}, status=400)
     events = ScheduledEvent.objects.filter(tutor_id=tutor_id, date=d)
+    
+    # Exclude logic for editing
+    exclude_id = request.query_params.get("exclude")
+    if exclude_id:
+        events = events.exclude(id=exclude_id)
+
     data = [{"start_time": e.start_time.strftime("%H:%M"), "end_time": e.end_time.strftime("%H:%M")} for e in events]
     return Response(data)
 
@@ -306,7 +511,14 @@ def rooms_available(request):
     if not s or not e:
         return Response({"detail": "invalid time format, expected HH:MM"}, status=400)
     # rooms that do NOT have any events overlapping
-    busy_rooms = ScheduledEvent.objects.filter(date=d).filter(~Q(end_time__lte=s) & ~Q(start_time__gte=e)).values_list('room', flat=True)
+    busy_qs = ScheduledEvent.objects.filter(date=d).filter(~Q(end_time__lte=s) & ~Q(start_time__gte=e))
+    
+    # Exclude logic for editing
+    exclude_id = request.query_params.get("exclude")
+    if exclude_id:
+        busy_qs = busy_qs.exclude(id=exclude_id)
+        
+    busy_rooms = busy_qs.values_list('room', flat=True)
     qs = Room.objects.exclude(id__in=list(busy_rooms))
     data = [{"id": r.id, "name": r.name} for r in qs]
     return Response(data)
@@ -440,3 +652,29 @@ def get_audit_logs(request):
     logs = AuditLog.objects.all().order_by("-timestamp")
     serializer = AuditLogSerializer(logs, many=True)
     return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_notifications(request):
+    """
+    Returns readonly list of notifications for the current user.
+    Ordered by most recent first.
+    """
+    try:
+        # Fetch notifications
+        notifs = Notification.objects.filter(user=request.user).order_by('-created_at')[:50] # Limit to 50 for now
+        
+        data = []
+        for n in notifs:
+            data.append({
+                "id": n.id,
+                "message": n.message,
+                "is_read": n.is_read,
+                "created_at": n.created_at.isoformat(),
+            })
+            
+        return Response(data, status=200)
+    except Exception as e:
+        logger.error(f"Error fetching notifications for user {request.user.id}: {e}")
+        return Response({"detail": "Error fetching notifications"}, status=500)

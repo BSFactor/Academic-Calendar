@@ -138,7 +138,13 @@ export function CreateEventForm({ onDone, initialData }: CreateEventFormProps) {
       return;
     }
     let mounted = true;
-    fetch(`${API_BASE}/api/calendar/tutors/${tutor}/schedules/?date=${date}`)
+    let url = `${API_BASE}/api/calendar/tutors/${tutor}/schedules/?date=${date}`;
+    // If editing, exclude current event
+    if (initialData && initialData.id) {
+      url += `&exclude=${initialData.id}`;
+    }
+
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         if (!mounted) return;
@@ -147,7 +153,7 @@ export function CreateEventForm({ onDone, initialData }: CreateEventFormProps) {
       })
       .catch((err) => { console.error('Failed to fetch tutor schedules', err); setTutorBusyRanges([]); });
     return () => { mounted = false };
-  }, [tutor, date]);
+  }, [tutor, date, initialData]);
 
   // Compute available time slots by removing busy ranges (simple approach: disable overlapping selections client-side)
   const isRangeOverlapping = (sA: string, eA: string, sB: string, eB: string) => {
@@ -158,11 +164,17 @@ export function CreateEventForm({ onDone, initialData }: CreateEventFormProps) {
   const [availableRooms, setAvailableRooms] = useState<Array<any>>([]);
   useEffect(() => {
     if (!date || !startTime || !endTime) { setAvailableRooms([]); return; }
-    fetch(`${API_BASE}/api/calendar/rooms/available/?date=${date}&start=${startTime}&end=${endTime}`)
+
+    let url = `${API_BASE}/api/calendar/rooms/available/?date=${date}&start=${startTime}&end=${endTime}`;
+    if (initialData && initialData.id) {
+      url += `&exclude=${initialData.id}`;
+    }
+
+    fetch(url)
       .then((r) => r.json())
       .then((data) => setAvailableRooms(data))
       .catch((err) => { console.error('Failed to fetch available rooms', err); setAvailableRooms([]); });
-  }, [date, startTime, endTime]);
+  }, [date, startTime, endTime, initialData]);
 
   const validateNoTutorOverlap = () => {
     if (!startTime || !endTime) return false;

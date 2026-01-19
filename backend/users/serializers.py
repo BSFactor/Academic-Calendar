@@ -6,7 +6,7 @@ from calendar_app.models import Major
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("username", "email", "role")
+        fields = ("id", "username", "email", "role")
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):

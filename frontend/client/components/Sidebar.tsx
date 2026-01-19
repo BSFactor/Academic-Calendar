@@ -69,12 +69,42 @@ export default function Sidebar() {
     return `${baseClass} ${activeClass}`;
   };
 
+  // Notifications Popup State
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Fetch notifications when popup opens
+  useEffect(() => {
+    if (showNotifications) {
+      const fetchNotifications = async () => {
+        try {
+          // Use current profile/token
+          const token = localStorage.getItem("accessToken");
+          if (!token) return;
+
+          const res = await fetch("http://127.0.0.1:8000/api/calendar/notifications/", {
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            setNotifications(data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch notifications", error);
+        }
+      };
+      fetchNotifications();
+    }
+  }, [showNotifications]);
+
   return (
-    <div className="hidden md:block mt-2 mb-2 ml-2 mr-0">
+    <div className="hidden md:block mt-2 mb-2 ml-2 mr-0 relative">
       <aside
-        className={`bg-white border border-gray-200 sticky top-0 h-screen p-1 flex flex-col transition-all duration-300 ease-in-out transform rounded-lg shadow-lg ${
-          sidebarCollapsed ? "w-16" : "w-64"
-        }`}
+        className={`bg-white border border-gray-200 sticky top-0 h-screen p-1 flex flex-col transition-all duration-300 ease-in-out transform rounded-lg shadow-lg ${sidebarCollapsed ? "w-16" : "w-64"
+          }`}
       >
         <div className={`flex items-center px-1 ${sidebarCollapsed ? 'justify-center' : 'justify-start'}`}>
           <div className="flex items-center gap-2">
@@ -101,9 +131,8 @@ export default function Sidebar() {
         <div className="mt-4 flex-1 flex flex-col gap-4">
           {/* Expanded Navigation */}
           <nav
-            className={`flex flex-col gap-1 px-1 transition-all duration-300 ${
-              sidebarCollapsed ? "hidden" : "flex"
-            }`}
+            className={`flex flex-col gap-1 px-1 transition-all duration-300 ${sidebarCollapsed ? "hidden" : "flex"
+              }`}
           >
             <Button
               variant="ghost"
@@ -218,18 +247,18 @@ export default function Sidebar() {
             )}
             <Button
               variant="ghost"
-              className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-gray-200"
-              title="Reminders"
+              className={`justify-start font-medium transition-colors duration-200 rounded-md ${showNotifications ? 'bg-gray-900 text-white' : 'hover:bg-gray-200'}`}
+              title="Notifications"
+              onClick={() => setShowNotifications(!showNotifications)}
             >
-              <Bell className="mr-2 h-4 w-4" /> Reminders
+              <Bell className="mr-2 h-4 w-4" /> Notifications
             </Button>
           </nav>
 
           {/* Collapsed Navigation (Icons Only) */}
           <nav
-            className={`flex flex-col gap-2 px-1 transition-all duration-300 ${
-              sidebarCollapsed ? "flex" : "hidden"
-            }`}
+            className={`flex flex-col gap-2 px-1 transition-all duration-300 ${sidebarCollapsed ? "flex" : "hidden"
+              }`}
           >
             <button
               onClick={() => navigate("/profile")}
@@ -310,8 +339,9 @@ export default function Sidebar() {
               </button>
             )}
             <button
-              className="p-2 transition-colors duration-200 rounded-md flex items-center justify-center hover:bg-gray-200"
-              title="Reminders"
+              className={`p-2 transition-colors duration-200 rounded-md flex items-center justify-center ${showNotifications ? 'bg-gray-900 text-white' : 'hover:bg-gray-200'}`}
+              title="Notifications"
+              onClick={() => setShowNotifications(!showNotifications)}
             >
               <Bell className="h-5 w-5" />
             </button>
@@ -340,6 +370,39 @@ export default function Sidebar() {
           )}
         </div>
       </aside>
+
+      {/* Notifications Popup */}
+      {showNotifications && (
+        <div
+          className="absolute top-0 bottom-0 z-50 bg-white shadow-xl border-l border-r border-gray-200 flex flex-col transition-all duration-300"
+          style={{ left: '100%', width: '320px', minHeight: '100vh' }}
+        >
+          <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
+            <h3 className="font-semibold text-lg text-gray-800">Notifications</h3>
+            <button onClick={() => setShowNotifications(false)} className="text-gray-500 hover:text-gray-700">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 p-4 overflow-y-auto space-y-3">
+            {notifications.length === 0 ? (
+              <div className="text-sm text-gray-500 text-center mt-10">
+                No new notifications
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <div key={n.id} className={`p-3 rounded-md text-sm border ${n.is_read ? 'bg-white border-gray-100' : 'bg-blue-50 border-blue-100'}`}>
+                  <p className="text-gray-800 mb-1">{n.message}</p>
+                  <span className="text-xs text-gray-500">{new Date(n.created_at).toLocaleString()}</span>
+                </div>
+              ))
+            )}
+            {/* <div className="text-sm text-gray-500 text-center mt-10">
+              No new notifications
+            </div> */}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

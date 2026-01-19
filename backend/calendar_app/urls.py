@@ -17,4 +17,6 @@ urlpatterns = [
     path("export/", views.export_calendar),
     # Audit logs
     path("audit/logs/", views.get_audit_logs),
+    # Notifications
+    path("notifications/", views.get_notifications),
 ]
