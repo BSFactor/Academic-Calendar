@@ -72,20 +72,23 @@ export default function Sidebar() {
   // Notifications Popup State
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Use Vite env var for API base.
+  const API = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "";
 
   // Fetch notifications when popup opens
   useEffect(() => {
     if (showNotifications) {
       const fetchNotifications = async () => {
         try {
-          // Use current profile/token
-          const token = localStorage.getItem("accessToken");
-          if (!token) return;
+          const accessToken = localStorage.getItem("accessToken");
+          if (!accessToken) return;
 
-          const res = await fetch("http://127.0.0.1:8000/api/calendar/notifications/", {
+          const res = await fetch(`${API}/api/calendar/notifications/`, {
             headers: {
-              "Authorization": `Bearer ${token}`
-            }
+              Authorization: `Bearer ${accessToken}`,
+            },
           });
 
           if (res.ok) {
