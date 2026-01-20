@@ -36,6 +36,26 @@ This will create a `dist/` directory with the compiled assets.
 >
 > The dev server serves the app at: http://localhost:8080/ (open this URL after running `npm run dev`).
 
+#### Production build and API host
+
+The frontend reads `VITE_API_BASE` at build time to determine the API root used by the app. By default the frontend uses same-origin calls (empty `VITE_API_BASE`) so requests like `/api/...` are sent to the same host that serves the frontend.
+
+- If Django will serve the built frontend (recommended): leave `VITE_API_BASE` empty and copy the build output into Django's static files (or let `collectstatic` pick up `frontend/dist`). The default Vite `base` is `/static/` so built assets should be served from `/static/`.
+- If the API is on a different host/origin, set `VITE_API_BASE` when building. Example (PowerShell):
+
+```powershell
+$Env:VITE_API_BASE='https://api.example.com'
+npm run build --prefix frontend
+```
+
+Or create `frontend/.env.production` containing:
+
+```
+VITE_API_BASE=https://api.example.com
+```
+
+Then run `npm run build` in `frontend`.
+
 ### 2. Backend Setup
 
 Create a virtual environment and install dependencies.
