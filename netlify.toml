@@ -1,0 +1,14 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Tell Vite to use base "/" for Netlify deployment
+  VITE_DEPLOY_TARGET = "netlify"
+
+# SPA fallback: redirect all routes to index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

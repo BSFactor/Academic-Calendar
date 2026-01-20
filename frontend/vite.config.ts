@@ -18,7 +18,8 @@ export default defineConfig(({ command }) => ({
       },
     },
   },
-  base: command === 'serve' ? "/" : "/static/",
+  // Use /static/ base when building for Django deployment, otherwise use root
+  base: command === 'serve' ? "/" : (process.env.VITE_DEPLOY_TARGET === 'netlify' ? "/" : "/static/"),
   build: {
     outDir: "dist",
   },
