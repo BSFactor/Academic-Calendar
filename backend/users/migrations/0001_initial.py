@@ -14,7 +14,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('auth', '0012_alter_user_first_name_max_length'),
-        ('calendar_app', '0001_initial'),
     ]
 
     operations = [
@@ -85,7 +84,6 @@ class Migration(migrations.Migration):
                 ('student_id', models.CharField(max_length=50, unique=True)),
                 ('year', models.PositiveSmallIntegerField()),
                 ('can_advance', models.BooleanField(default=True)),
-                ('major', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='students', to='calendar_app.major')),
                 ('user', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='student_profile', to=settings.AUTH_USER_MODEL)),
             ],
         ),
@@ -97,7 +95,6 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=200)),
                 ('dob', models.DateField(verbose_name='date of birth')),
                 ('tutor_id', models.CharField(max_length=50, unique=True)),
-                ('courses', models.ManyToManyField(blank=True, related_name='tutors', to='calendar_app.course')),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='tutor_profile', to=settings.AUTH_USER_MODEL)),
             ],
         ),
