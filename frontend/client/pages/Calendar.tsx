@@ -214,6 +214,7 @@ export default function CalendarPage() {
     // pending events get yellow background
     if (status === 'pending') return { dot: 'bg-yellow-500', block: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
     if (status === 'request_change') return { dot: 'bg-red-500', block: 'bg-red-100 text-red-800 border-red-200' };
+    if (status === 'cancelled') return { dot: 'bg-gray-500', block: 'bg-gray-100 text-gray-500 border-gray-200 line-through' };
 
     const def = { dot: 'bg-blue-500', block: 'bg-blue-600 text-white' };
     if (!t) return def;
@@ -591,14 +592,16 @@ export default function CalendarPage() {
                                     // If any approved -> show 1 blue dot
                                     // If both -> show both
                                     const hasPending = eventsForDay.some(e => e.status === 'pending');
-                                    const hasApproved = eventsForDay.some(e => e.status !== 'pending' && e.status !== 'rejected' && e.status !== 'request_change');
+                                    const hasApproved = eventsForDay.some(e => e.status === 'approved');
                                     const hasRequestChange = eventsForDay.some(e => e.status === 'request_change');
+                                    const hasCancelled = eventsForDay.some(e => e.status === 'cancelled');
 
                                     return (
                                       <>
                                         {hasPending && <span className="bg-yellow-500 w-3 h-3 rounded-full" title="Pending Events" />}
                                         {hasApproved && <span className="bg-blue-500 w-3 h-3 rounded-full" title="Approved Events" />}
                                         {hasRequestChange && <span className="bg-red-500 w-3 h-3 rounded-full" title="Change Requests" />}
+                                        {hasCancelled && <span className="bg-gray-500 w-3 h-3 rounded-full" title="Cancelled Events" />}
                                       </>
                                     );
                                   })()}
@@ -761,7 +764,7 @@ export default function CalendarPage() {
                                   <span className="font-semibold not-italic">Note:</span> {e.notes}
                                 </div>
                               )}
-                              {e.status && <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full ${e.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : e.status === 'request_change' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-700'}`}>{e.status.replace('_', ' ')}</div>}
+                              {e.status && <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full ${e.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : e.status === 'request_change' ? 'bg-red-100 text-red-800' : e.status === 'cancelled' ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-700'}`}>{e.status.replace('_', ' ')}</div>}
 
                               {/* Edit Event Button for Authorized Users or Event Owner (Tutor) */}
                               {(hasAuthority || profile?.role === "academic_assistant" || (profile?.role === "tutor" && e.tutor === profile?.id)) && (
